@@ -46,7 +46,7 @@ INSTALLED_APPS = [
     'django_celery_beat',
     
     # Local apps
-    'users',
+    'users.apps.UsersConfig',  # Use custom AppConfig to load signals
     'teams',
     'projects',
     'tasks',
@@ -139,6 +139,10 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Custom User Model
+# https://docs.djangoproject.com/en/5.2/topics/auth/customizing/#substituting-a-custom-user-model
+AUTH_USER_MODEL = 'users.User'
 
 # Django REST Framework Configuration
 REST_FRAMEWORK = {
