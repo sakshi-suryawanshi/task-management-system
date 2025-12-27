@@ -1,27 +1,81 @@
-# Django
-Django==5.2
-djangorestframework==3.15.2
-django-cors-headers==4.7.0
-django-environ==0.11.2
+# ============================================================================
+# Production Dependencies for Task Management System
+# ============================================================================
+# This file contains all production dependencies required to run the application.
+# For development dependencies, see requirements-dev.txt
+#
+# Python Version: 3.11+
+# ============================================================================
 
+# ----------------------------------------------------------------------------
+# Core Framework
+# ----------------------------------------------------------------------------
+# Django: High-level Python web framework
+# Note: Using 5.1.x for stability. Update to 5.2.x when officially released.
+Django==5.1.0
+djangorestframework==3.15.2
+
+# ----------------------------------------------------------------------------
 # Database
+# ----------------------------------------------------------------------------
+# MySQL client library for Django
 mysqlclient==2.2.4
 
-# Authentication
+# ----------------------------------------------------------------------------
+# Authentication & Security
+# ----------------------------------------------------------------------------
+# JWT authentication for Django REST Framework
 djangorestframework-simplejwt==5.3.1
 
-# Celery
+# ----------------------------------------------------------------------------
+# HTTP & CORS
+# ----------------------------------------------------------------------------
+# CORS headers for cross-origin requests
+django-cors-headers==4.7.0
+
+# ----------------------------------------------------------------------------
+# Configuration Management
+# ----------------------------------------------------------------------------
+# Environment variable management
+django-environ==0.11.2
+
+# ----------------------------------------------------------------------------
+# Background Task Processing
+# ----------------------------------------------------------------------------
+# Celery: Distributed task queue
 celery==5.4.0
+
+# Redis: Message broker and cache backend for Celery
 redis==5.2.0
+
+# Flower: Web-based tool for monitoring Celery clusters
 flower==2.0.1
+
+# Django Celery Beat: Database-backed periodic task scheduler
 django-celery-beat==2.8.1
 
+# ----------------------------------------------------------------------------
 # Production Server
+# ----------------------------------------------------------------------------
+# Gunicorn: Python WSGI HTTP Server for Unix
 gunicorn==23.0.0
 
+# ----------------------------------------------------------------------------
 # API Documentation
+# ----------------------------------------------------------------------------
+# drf-spectacular: OpenAPI 3 schema generation for Django REST Framework
 drf-spectacular==0.27.2
 
+# ----------------------------------------------------------------------------
 # Utilities
+# ----------------------------------------------------------------------------
+# Date utility library
 python-dateutil==2.9.0
+
+# Pillow: Python Imaging Library for image handling (avatars, attachments)
 Pillow==11.0.0
+
+# ----------------------------------------------------------------------------
+# Core Python Dependencies (usually auto-installed, but explicit for clarity)
+# ----------------------------------------------------------------------------
+# Ensure pip, setuptools, and wheel are up to date (installed via Dockerfile)

@@ -1,0 +1,126 @@
+# ============================================================================
+# Development Dependencies for Task Management System
+# ============================================================================
+# This file contains development tools and dependencies.
+# Install with: pip install -r requirements-dev.txt
+# Or install both: pip install -r requirements.txt -r requirements-dev.txt
+#
+# These packages are NOT needed for production deployment.
+# ============================================================================
+
+# Include production requirements
+-r requirements.txt
+
+# ----------------------------------------------------------------------------
+# Testing Framework
+# ----------------------------------------------------------------------------
+# pytest: Python testing framework
+pytest==8.3.4
+
+# pytest-django: pytest plugin for Django testing
+pytest-django==4.8.0
+
+# pytest-cov: Coverage plugin for pytest
+pytest-cov==5.0.0
+
+# pytest-xdist: Distributed testing plugin (parallel test execution)
+pytest-xdist==3.6.1
+
+# pytest-mock: Mock fixture for pytest
+pytest-mock==3.14.0
+
+# Factory Boy: Test data generation (alternative to fixtures)
+factory-boy==3.3.1
+
+# Faker: Generate fake data for testing
+Faker==32.0.1
+
+# ----------------------------------------------------------------------------
+# Code Quality & Linting
+# ----------------------------------------------------------------------------
+# Black: Uncompromising Python code formatter
+black==24.10.0
+
+# flake8: Style guide enforcement tool
+flake8==7.1.1
+
+# isort: Python import sorter (complements Black)
+isort==5.13.2
+
+# flake8-docstrings: Extension for flake8 to check docstrings
+flake8-docstrings==1.7.1
+
+# flake8-bugbear: Plugin that finds likely bugs and design problems
+flake8-bugbear==24.10.7
+
+# flake8-comprehensions: Helps write better comprehensions
+flake8-comprehensions==3.15.1
+
+# ----------------------------------------------------------------------------
+# Type Checking (Optional but Recommended)
+# ----------------------------------------------------------------------------
+# mypy: Static type checker for Python
+mypy==1.11.2
+
+# django-stubs: Type stubs for Django
+django-stubs==5.0.2
+
+# djangorestframework-stubs: Type stubs for Django REST Framework
+djangorestframework-stubs==3.15.1
+
+# ----------------------------------------------------------------------------
+# Code Coverage
+# ----------------------------------------------------------------------------
+# coverage: Code coverage measurement tool
+coverage==7.6.0
+
+# ----------------------------------------------------------------------------
+# Development Tools
+# ----------------------------------------------------------------------------
+# IPython: Enhanced interactive Python shell (better than default)
+ipython==8.24.0
+
+# django-extensions: Collection of custom extensions for Django
+# Includes: shell_plus, runserver_plus, show_urls, etc.
+django-extensions==3.2.3
+
+# ----------------------------------------------------------------------------
+# Git Hooks & Pre-commit
+# ----------------------------------------------------------------------------
+# pre-commit: Framework for managing and maintaining multi-language pre-commit hooks
+pre-commit==3.8.0
+
+# ----------------------------------------------------------------------------
+# Documentation
+# ----------------------------------------------------------------------------
+# Sphinx: Python documentation generator (optional)
+# Uncomment if you want to generate documentation
+# sphinx==7.3.7
+# sphinx-rtd-theme==2.0.0
+
+# ----------------------------------------------------------------------------
+# Debugging & Profiling (Optional)
+# ----------------------------------------------------------------------------
+# django-debug-toolbar: Configurable panels to debug Django applications
+# Note: Only use in development, never in production
+django-debug-toolbar==4.4.6
+
+# ipdb: IPython-enabled pdb debugger
+ipdb==0.13.13
+
+# ----------------------------------------------------------------------------
+# Security Auditing (Optional but Recommended)
+# ----------------------------------------------------------------------------
+# bandit: Security linting tool for Python code
+bandit==1.7.9
+
+# safety: Checks dependencies for known security vulnerabilities
+safety==3.2.0
+
+# ----------------------------------------------------------------------------
+# Database Utilities
+# ----------------------------------------------------------------------------
+# django-silk: Profiling and inspection tool for Django (development only)
+# Uncomment if needed for performance profiling
+# django-silk==5.1.1
+
