@@ -1,0 +1,42 @@
+Hello {{ user.get_full_name_or_username }}!
+
+{% if is_overdue %}
+⚠️ THIS TASK IS OVERDUE!
+{% else %}
+⏰ This task is due soon!
+{% endif %}
+
+This is a reminder about your task that {% if is_overdue %}was due{% else %}is due{% endif %}.
+
+Task: {{ task.title }}
+{% if task.description %}
+Description: {{ task.description|truncatewords:50 }}
+{% endif %}
+
+Project: {{ project.name }}
+Priority: {{ task.get_priority_display }}
+Due Date: {{ due_date|date:"F d, Y g:i A" }}
+{% if days_display is not None %}
+{% if is_overdue %}Days Overdue: {{ days_display }}{% else %}Days Until Due: {{ days_display }}{% endif %}
+{% endif %}
+Status: {{ task.get_status_display }}
+
+View Task: {{ task_url }}
+
+{% if is_overdue %}
+Please take action on this task as soon as possible. 
+If you need assistance or have any questions, please contact your project manager.
+{% else %}
+Please review this task and ensure it's completed by the due date. 
+If you need assistance or have any questions, please contact your project manager.
+{% endif %}
+
+Best regards,
+{{ site_name }} Team
+
+---
+This is an automated email. Please do not reply to this message.
+{% if support_email %}
+Need help? Contact us at {{ support_email }}
+{% endif %}
+

@@ -1,0 +1,58 @@
+{% extends "notifications/emails/base.html" %}
+
+{% block header_title %}New Task Assigned{% endblock %}
+
+{% block content %}
+<h2>Hello {{ user.get_full_name_or_username }}!</h2>
+
+<p>You have been assigned a new task.</p>
+
+<div class="info-box">
+    <p><strong>Task:</strong> {{ task.title }}</p>
+    {% if task.description %}
+    <p style="margin-top: 10px;"><strong>Description:</strong> {{ task.description|truncatewords:50 }}</p>
+    {% endif %}
+</div>
+
+<table class="details-table">
+    <tr>
+        <td>Project:</td>
+        <td><strong>{{ project.name }}</strong></td>
+    </tr>
+    <tr>
+        <td>Priority:</td>
+        <td><strong>{{ task.get_priority_display }}</strong></td>
+    </tr>
+    {% if task.due_date %}
+    <tr>
+        <td>Due Date:</td>
+        <td><strong>{{ task.due_date|date:"F d, Y g:i A" }}</strong></td>
+    </tr>
+    {% endif %}
+    <tr>
+        <td>Status:</td>
+        <td><strong>{{ task.get_status_display }}</strong></td>
+    </tr>
+    {% if assigner %}
+    <tr>
+        <td>Assigned by:</td>
+        <td>{{ assigner.get_full_name_or_username }}</td>
+    </tr>
+    {% endif %}
+</table>
+
+<p style="text-align: center; margin-top: 30px;">
+    <a href="{{ task_url }}" class="button">View Task</a>
+</p>
+
+<p style="margin-top: 30px;">
+    You can view this task and all your assigned tasks in your dashboard. 
+    If you have any questions about this task, please reach out to your project manager.
+</p>
+
+<p style="margin-top: 20px;">
+    Best regards,<br>
+    <strong>{{ site_name }} Team</strong>
+</p>
+{% endblock %}
+

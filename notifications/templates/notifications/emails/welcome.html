@@ -1,0 +1,58 @@
+{% extends "notifications/emails/base.html" %}
+
+{% block header_title %}Welcome!{% endblock %}
+
+{% block content %}
+<h2>Welcome to {{ site_name }}, {{ full_name }}!</h2>
+
+<p>We're excited to have you on board! Your account has been successfully created, and you're all set to start managing your tasks and projects.</p>
+
+<div class="info-box">
+    <p><strong>Your Account Details:</strong></p>
+    <p>Username: <strong>{{ username }}</strong></p>
+    <p>Email: <strong>{{ user.email }}</strong></p>
+</div>
+
+<h3>Getting Started</h3>
+
+<p>Here are some things you can do to get started:</p>
+
+<ul style="margin: 20px 0; padding-left: 25px;">
+    <li style="margin: 10px 0;">Complete your profile to help your team members know more about you</li>
+    <li style="margin: 10px 0;">Join or create a team to start collaborating</li>
+    <li style="margin: 10px 0;">Create or join projects to organize your work</li>
+    <li style="margin: 10px 0;">Start managing tasks and track your progress</li>
+    <li style="margin: 10px 0;">Customize your notification preferences</li>
+</ul>
+
+<p style="text-align: center; margin-top: 30px;">
+    <a href="{{ login_url }}" class="button">Log In to Your Account</a>
+</p>
+
+<p style="text-align: center; margin-top: 20px;">
+    <a href="{{ dashboard_url }}" class="button">Go to Dashboard</a>
+</p>
+
+<h3>Need Help?</h3>
+
+<p>
+    If you have any questions or need assistance getting started, please don't hesitate to reach out. 
+    Our support team is here to help!
+</p>
+
+{% if support_email %}
+<p>
+    You can contact us at <a href="mailto:{{ support_email }}">{{ support_email }}</a>
+</p>
+{% endif %}
+
+<p style="margin-top: 30px;">
+    Once again, welcome to {{ site_name }}! We look forward to seeing what you'll accomplish.
+</p>
+
+<p style="margin-top: 20px;">
+    Best regards,<br>
+    <strong>{{ site_name }} Team</strong>
+</p>
+{% endblock %}
+

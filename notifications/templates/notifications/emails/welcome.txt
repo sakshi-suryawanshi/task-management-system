@@ -1,0 +1,40 @@
+Welcome to {{ site_name }}, {{ full_name }}!
+
+We're excited to have you on board! Your account has been successfully created, and you're all set to start managing your tasks and projects.
+
+Your Account Details:
+Username: {{ username }}
+Email: {{ user.email }}
+
+Getting Started
+
+Here are some things you can do to get started:
+
+- Complete your profile to help your team members know more about you
+- Join or create a team to start collaborating
+- Create or join projects to organize your work
+- Start managing tasks and track your progress
+- Customize your notification preferences
+
+Log In to Your Account: {{ login_url }}
+Go to Dashboard: {{ dashboard_url }}
+
+Need Help?
+
+If you have any questions or need assistance getting started, please don't hesitate to reach out. Our support team is here to help!
+
+{% if support_email %}
+You can contact us at {{ support_email }}
+{% endif %}
+
+Once again, welcome to {{ site_name }}! We look forward to seeing what you'll accomplish.
+
+Best regards,
+{{ site_name }} Team
+
+---
+This is an automated email. Please do not reply to this message.
+{% if support_email %}
+Need help? Contact us at {{ support_email }}
+{% endif %}
+

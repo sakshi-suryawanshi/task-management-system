@@ -1,0 +1,35 @@
+Hello {{ user.get_full_name_or_username }}!
+
+There has been an update to one of your projects.
+
+Project: {{ project.name }}
+{% if project.description %}
+Description: {{ project.description|truncatewords:50 }}
+{% endif %}
+
+Team: {{ team.name }}
+Status: {{ project.get_status_display }}
+Priority: {{ project.get_priority_display }}
+{% if project.deadline %}
+Deadline: {{ project.deadline|date:"F d, Y g:i A" }}
+{% endif %}
+Update Type: {{ update_description }}
+
+{% if update_description %}
+Update Details: {{ update_description }}
+{% endif %}
+
+View Project: {{ project_url }}
+
+You can view all project details and updates in your dashboard. 
+If you have any questions, please contact your project manager or team lead.
+
+Best regards,
+{{ site_name }} Team
+
+---
+This is an automated email. Please do not reply to this message.
+{% if support_email %}
+Need help? Contact us at {{ support_email }}
+{% endif %}
+

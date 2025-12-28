@@ -1,0 +1,91 @@
+Hello {{ user.get_full_name_or_username }}!
+
+Here's your weekly activity summary for the week of {{ week_start }} to {{ week_end }}:
+
+{% if tasks_completed_count > 0 %}
+✅ TASKS COMPLETED ({{ tasks_completed_count }})
+Great work! You completed the following tasks this week:
+{% for task in tasks_completed %}
+- {{ task.title }}
+  Project: {{ task.project.name|default:"N/A" }}
+{% endfor %}
+{% if tasks_completed_count > 10 %}
+... and {{ tasks_completed_count|add:"-10" }} more task{{ tasks_completed_count|add:"-10"|pluralize }}!
+{% endif %}
+
+{% endif %}
+{% if tasks_created_count > 0 %}
+📝 TASKS CREATED ({{ tasks_created_count }})
+You created the following tasks this week:
+{% for task in tasks_created %}
+- {{ task.title }}
+  Project: {{ task.project.name|default:"N/A" }}
+{% endfor %}
+{% if tasks_created_count > 10 %}
+... and {{ tasks_created_count|add:"-10" }} more task{{ tasks_created_count|add:"-10"|pluralize }}!
+{% endif %}
+
+{% endif %}
+{% if tasks_assigned_count > 0 %}
+📋 ACTIVE TASKS ({{ tasks_assigned_count }})
+You currently have the following active tasks:
+{% for task in tasks_assigned %}
+- {{ task.title }}
+  {% if task.due_date %}Due: {{ task.due_date|date:"M d, Y" }}{% endif %}
+  Project: {{ task.project.name|default:"N/A" }}
+{% endfor %}
+{% if tasks_assigned_count > 10 %}
+... and {{ tasks_assigned_count|add:"-10" }} more task{{ tasks_assigned_count|add:"-10"|pluralize }}!
+{% endif %}
+
+{% endif %}
+{% if upcoming_deadlines_count > 0 %}
+⏰ UPCOMING DEADLINES ({{ upcoming_deadlines_count }})
+Tasks with deadlines in the next 7 days:
+{% for task in upcoming_deadlines %}
+- {{ task.title }} - Due: {{ task.due_date|date:"M d, Y" }}
+  Project: {{ task.project.name|default:"N/A" }}
+{% endfor %}
+{% if upcoming_deadlines_count > 10 %}
+... and {{ upcoming_deadlines_count|add:"-10" }} more task{{ upcoming_deadlines_count|add:"-10"|pluralize }}!
+{% endif %}
+
+{% endif %}
+{% if active_projects_count > 0 %}
+📁 ACTIVE PROJECTS ({{ active_projects_count }})
+You're involved in the following active projects:
+{% for project in active_projects %}
+- {{ project.name }}
+  {% if project.team %}Team: {{ project.team.name }}{% endif %}
+{% endfor %}
+{% if active_projects_count > 5 %}
+... and {{ active_projects_count|add:"-5" }} more project{{ active_projects_count|add:"-5"|pluralize }}!
+{% endif %}
+
+{% endif %}
+View Full Dashboard: {{ dashboard_url }}
+
+SUMMARY:
+{% if tasks_completed_count > 0 %}
+✅ {{ tasks_completed_count }} task{{ tasks_completed_count|pluralize }} completed
+{% endif %}
+{% if tasks_created_count > 0 %}
+📝 {{ tasks_created_count }} task{{ tasks_created_count|pluralize }} created
+{% endif %}
+{% if tasks_assigned_count > 0 %}
+📋 {{ tasks_assigned_count }} active task{{ tasks_assigned_count|pluralize }}
+{% endif %}
+{% if active_projects_count > 0 %}
+📁 {{ active_projects_count }} active project{{ active_projects_count|pluralize }}
+{% endif %}
+
+Keep up the great work! If you have any questions or need assistance, 
+please don't hesitate to reach out.
+
+Best regards,
+{{ site_name }} Team
+
+---
+This is an automated email. Please do not reply to this message.
+Need help? Contact us at {{ support_email|default:"support@taskmanager.com" }}
+

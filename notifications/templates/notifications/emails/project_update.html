@@ -1,0 +1,63 @@
+{% extends "notifications/emails/base.html" %}
+
+{% block header_title %}Project Update{% endblock %}
+
+{% block content %}
+<h2>Hello {{ user.get_full_name_or_username }}!</h2>
+
+<p>There has been an update to one of your projects.</p>
+
+<div class="info-box">
+    <p><strong>Project:</strong> {{ project.name }}</p>
+    {% if project.description %}
+    <p style="margin-top: 10px;"><strong>Description:</strong> {{ project.description|truncatewords:50 }}</p>
+    {% endif %}
+</div>
+
+<table class="details-table">
+    <tr>
+        <td>Team:</td>
+        <td><strong>{{ team.name }}</strong></td>
+    </tr>
+    <tr>
+        <td>Status:</td>
+        <td><strong>{{ project.get_status_display }}</strong></td>
+    </tr>
+    <tr>
+        <td>Priority:</td>
+        <td><strong>{{ project.get_priority_display }}</strong></td>
+    </tr>
+    {% if project.deadline %}
+    <tr>
+        <td>Deadline:</td>
+        <td><strong>{{ project.deadline|date:"F d, Y g:i A" }}</strong></td>
+    </tr>
+    {% endif %}
+    <tr>
+        <td>Update Type:</td>
+        <td><strong>{{ update_description }}</strong></td>
+    </tr>
+</table>
+
+{% if update_description %}
+<div class="info-box">
+    <p><strong>Update Details:</strong></p>
+    <p>{{ update_description }}</p>
+</div>
+{% endif %}
+
+<p style="text-align: center; margin-top: 30px;">
+    <a href="{{ project_url }}" class="button">View Project</a>
+</p>
+
+<p style="margin-top: 30px;">
+    You can view all project details and updates in your dashboard. 
+    If you have any questions, please contact your project manager or team lead.
+</p>
+
+<p style="margin-top: 20px;">
+    Best regards,<br>
+    <strong>{{ site_name }} Team</strong>
+</p>
+{% endblock %}
+

@@ -1,0 +1,154 @@
+{% extends "notifications/emails/base.html" %}
+
+{% block header_title %}Weekly Activity Digest{% endblock %}
+
+{% block content %}
+<h2>Hello {{ user.get_full_name_or_username }}!</h2>
+
+<p>Here's your weekly activity summary for the week of <strong>{{ week_start }}</strong> to <strong>{{ week_end }}</strong>:</p>
+
+{% if tasks_completed_count > 0 %}
+<div class="info-box" style="background-color: #d1fae5; border-left-color: #10b981;">
+    <h3 style="margin-top: 0; color: #059669;">✅ Tasks Completed ({{ tasks_completed_count }})</h3>
+    <p style="margin-bottom: 10px;">Great work! You completed the following tasks this week:</p>
+    <ul style="margin: 10px 0; padding-left: 20px;">
+        {% for task in tasks_completed %}
+        <li style="margin: 8px 0;">
+            <strong>{{ task.title }}</strong>
+            {% if task.project %}
+            <br><span style="color: #6b7280; font-size: 14px;">Project: {{ task.project.name }}</span>
+            {% endif %}
+        </li>
+        {% endfor %}
+    </ul>
+    {% if tasks_completed_count > 10 %}
+    <p style="margin-top: 10px; color: #6b7280; font-size: 14px;">
+        ... and {{ tasks_completed_count|add:"-10" }} more task{{ tasks_completed_count|add:"-10"|pluralize }}!
+    </p>
+    {% endif %}
+</div>
+{% endif %}
+
+{% if tasks_created_count > 0 %}
+<div class="info-box">
+    <h3 style="margin-top: 0;">📝 Tasks Created ({{ tasks_created_count }})</h3>
+    <p style="margin-bottom: 10px;">You created the following tasks this week:</p>
+    <ul style="margin: 10px 0; padding-left: 20px;">
+        {% for task in tasks_created %}
+        <li style="margin: 8px 0;">
+            <strong>{{ task.title }}</strong>
+            {% if task.project %}
+            <br><span style="color: #6b7280; font-size: 14px;">Project: {{ task.project.name }}</span>
+            {% endif %}
+        </li>
+        {% endfor %}
+    </ul>
+    {% if tasks_created_count > 10 %}
+    <p style="margin-top: 10px; color: #6b7280; font-size: 14px;">
+        ... and {{ tasks_created_count|add:"-10" }} more task{{ tasks_created_count|add:"-10"|pluralize }}!
+    </p>
+    {% endif %}
+</div>
+{% endif %}
+
+{% if tasks_assigned_count > 0 %}
+<div class="warning-box">
+    <h3 style="margin-top: 0;">📋 Active Tasks ({{ tasks_assigned_count }})</h3>
+    <p style="margin-bottom: 10px;">You currently have the following active tasks:</p>
+    <ul style="margin: 10px 0; padding-left: 20px;">
+        {% for task in tasks_assigned %}
+        <li style="margin: 8px 0;">
+            <strong>{{ task.title }}</strong>
+            {% if task.due_date %}
+            <br><span style="color: #6b7280; font-size: 14px;">Due: {{ task.due_date|date:"M d, Y" }}</span>
+            {% endif %}
+            {% if task.project %}
+            <br><span style="color: #6b7280; font-size: 14px;">Project: {{ task.project.name }}</span>
+            {% endif %}
+        </li>
+        {% endfor %}
+    </ul>
+    {% if tasks_assigned_count > 10 %}
+    <p style="margin-top: 10px; color: #6b7280; font-size: 14px;">
+        ... and {{ tasks_assigned_count|add:"-10" }} more task{{ tasks_assigned_count|add:"-10"|pluralize }}!
+    </p>
+    {% endif %}
+</div>
+{% endif %}
+
+{% if upcoming_deadlines_count > 0 %}
+<div class="warning-box">
+    <h3 style="margin-top: 0;">⏰ Upcoming Deadlines ({{ upcoming_deadlines_count }})</h3>
+    <p style="margin-bottom: 10px;">Tasks with deadlines in the next 7 days:</p>
+    <ul style="margin: 10px 0; padding-left: 20px;">
+        {% for task in upcoming_deadlines %}
+        <li style="margin: 8px 0;">
+            <strong>{{ task.title }}</strong> - 
+            <span style="color: #f59e0b;">Due: {{ task.due_date|date:"M d, Y" }}</span>
+            {% if task.project %}
+            <br><span style="color: #6b7280; font-size: 14px;">Project: {{ task.project.name }}</span>
+            {% endif %}
+        </li>
+        {% endfor %}
+    </ul>
+    {% if upcoming_deadlines_count > 10 %}
+    <p style="margin-top: 10px; color: #6b7280; font-size: 14px;">
+        ... and {{ upcoming_deadlines_count|add:"-10" }} more task{{ upcoming_deadlines_count|add:"-10"|pluralize }}!
+    </p>
+    {% endif %}
+</div>
+{% endif %}
+
+{% if active_projects_count > 0 %}
+<div class="info-box" style="background-color: #eff6ff; border-left-color: #3b82f6;">
+    <h3 style="margin-top: 0; color: #2563eb;">📁 Active Projects ({{ active_projects_count }})</h3>
+    <p style="margin-bottom: 10px;">You're involved in the following active projects:</p>
+    <ul style="margin: 10px 0; padding-left: 20px;">
+        {% for project in active_projects %}
+        <li style="margin: 8px 0;">
+            <strong>{{ project.name }}</strong>
+            {% if project.team %}
+            <br><span style="color: #6b7280; font-size: 14px;">Team: {{ project.team.name }}</span>
+            {% endif %}
+        </li>
+        {% endfor %}
+    </ul>
+    {% if active_projects_count > 5 %}
+    <p style="margin-top: 10px; color: #6b7280; font-size: 14px;">
+        ... and {{ active_projects_count|add:"-5" }} more project{{ active_projects_count|add:"-5"|pluralize }}!
+    </p>
+    {% endif %}
+</div>
+{% endif %}
+
+<p style="text-align: center; margin-top: 30px;">
+    <a href="{{ dashboard_url }}" class="button">View Full Dashboard</a>
+</p>
+
+<p style="margin-top: 30px;">
+    <strong>Summary:</strong><br>
+    {% if tasks_completed_count > 0 %}
+    ✅ {{ tasks_completed_count }} task{{ tasks_completed_count|pluralize }} completed<br>
+    {% endif %}
+    {% if tasks_created_count > 0 %}
+    📝 {{ tasks_created_count }} task{{ tasks_created_count|pluralize }} created<br>
+    {% endif %}
+    {% if tasks_assigned_count > 0 %}
+    📋 {{ tasks_assigned_count }} active task{{ tasks_assigned_count|pluralize }}<br>
+    {% endif %}
+    {% if active_projects_count > 0 %}
+    📁 {{ active_projects_count }} active project{{ active_projects_count|pluralize }}<br>
+    {% endif %}
+</p>
+
+<p style="margin-top: 20px;">
+    Keep up the great work! If you have any questions or need assistance, 
+    please don't hesitate to reach out.
+</p>
+
+<p style="margin-top: 20px;">
+    Best regards,<br>
+    <strong>{{ site_name }} Team</strong>
+</p>
+{% endblock %}
+

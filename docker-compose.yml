@@ -165,7 +165,14 @@ services:
       dockerfile: Dockerfile
     container_name: taskmanager_flower
     restart: unless-stopped
-    command: celery -A taskmanager flower --port=5555 --broker=redis://redis:6379/0
+    command: >
+      sh -c "
+      if [ \"$$FLOWER_ENABLE_AUTH\" = \"true\" ]; then
+        celery -A taskmanager flower --port=5555 --broker=redis://redis:6379/0 --broker_api=redis://redis:6379/0 --persistent=True --db=/tmp/flower.db --max_tasks=10000 --basic_auth=$$FLOWER_USER:$$FLOWER_PASSWORD;
+      else
+        celery -A taskmanager flower --port=5555 --broker=redis://redis:6379/0 --broker_api=redis://redis:6379/0 --persistent=True --db=/tmp/flower.db --max_tasks=10000;
+      fi
+      "
     ports:
       - "${FLOWER_PORT:-5555}:5555"
     volumes:
@@ -180,6 +187,17 @@ services:
     environment:
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - FLOWER_PORT=${FLOWER_PORT:-5555}
+      - FLOWER_ENABLE_AUTH=${FLOWER_ENABLE_AUTH:-false}
+      - FLOWER_USER=${FLOWER_USER:-admin}
+      - FLOWER_PASSWORD=${FLOWER_PASSWORD:-admin}
+      - FLOWER_UNAUTHENTICATED_API=true
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5555/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
     networks:
       - taskmanager_network
 
@@ -216,6 +234,8 @@ volumes:
   media_volume:
     driver: local
   celerybeat_data:
+    driver: local
+  flower_data:
     driver: local
 
 # Docker Network

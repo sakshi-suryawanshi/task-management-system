@@ -1,0 +1,73 @@
+{% extends "notifications/emails/base.html" %}
+
+{% block header_title %}Task Reminder{% endblock %}
+
+{% block content %}
+<h2>Hello {{ user.get_full_name_or_username }}!</h2>
+
+{% if is_overdue %}
+<div class="danger-box">
+    <p><strong>⚠️ This task is overdue!</strong></p>
+</div>
+{% else %}
+<div class="warning-box">
+    <p><strong>⏰ This task is due soon!</strong></p>
+</div>
+{% endif %}
+
+<p>This is a reminder about your task that {% if is_overdue %}was due{% else %}is due{% endif %}.</p>
+
+<div class="info-box">
+    <p><strong>Task:</strong> {{ task.title }}</p>
+    {% if task.description %}
+    <p style="margin-top: 10px;"><strong>Description:</strong> {{ task.description|truncatewords:50 }}</p>
+    {% endif %}
+</div>
+
+<table class="details-table">
+    <tr>
+        <td>Project:</td>
+        <td><strong>{{ project.name }}</strong></td>
+    </tr>
+    <tr>
+        <td>Priority:</td>
+        <td><strong>{{ task.get_priority_display }}</strong></td>
+    </tr>
+    <tr>
+        <td>Due Date:</td>
+        <td><strong>{{ due_date|date:"F d, Y g:i A" }}</strong></td>
+    </tr>
+    {% if days_display is not None %}
+    <tr>
+        <td>{% if is_overdue %}Days Overdue:{% else %}Days Until Due:{% endif %}</td>
+        <td><strong>{{ days_display }}</strong></td>
+    </tr>
+    {% endif %}
+    <tr>
+        <td>Status:</td>
+        <td><strong>{{ task.get_status_display }}</strong></td>
+    </tr>
+</table>
+
+<p style="text-align: center; margin-top: 30px;">
+    <a href="{{ task_url }}" class="button">View Task</a>
+</p>
+
+{% if is_overdue %}
+<p style="margin-top: 30px; color: #dc2626;">
+    <strong>Please take action on this task as soon as possible.</strong> 
+    If you need assistance or have any questions, please contact your project manager.
+</p>
+{% else %}
+<p style="margin-top: 30px;">
+    Please review this task and ensure it's completed by the due date. 
+    If you need assistance or have any questions, please contact your project manager.
+</p>
+{% endif %}
+
+<p style="margin-top: 20px;">
+    Best regards,<br>
+    <strong>{{ site_name }} Team</strong>
+</p>
+{% endblock %}
+

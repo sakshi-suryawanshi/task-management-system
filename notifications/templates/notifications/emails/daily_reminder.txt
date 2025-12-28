@@ -1,0 +1,46 @@
+Hello {{ user.get_full_name_or_username }}!
+
+Here's your daily task reminder for today. You have tasks that need your attention:
+
+{% if overdue_tasks %}
+⚠️ OVERDUE TASKS ({{ total_overdue }})
+{% for task in overdue_tasks %}
+- {{ task.title }} - Due: {{ task.due_date|date:"M d, Y" }}
+  Project: {{ task.project.name|default:"N/A" }}
+{% endfor %}
+
+{% endif %}
+{% if tasks_due_today %}
+📅 TASKS DUE TODAY ({{ total_tasks_due_today }})
+{% for task in tasks_due_today %}
+- {{ task.title }}
+  Project: {{ task.project.name|default:"N/A" }}
+{% endfor %}
+
+{% endif %}
+{% if upcoming_tasks %}
+⏰ UPCOMING DEADLINES ({{ total_upcoming }})
+Tasks due in the next 1-2 days:
+{% for task in upcoming_tasks %}
+- {{ task.title }} - Due: {{ task.due_date|date:"M d, Y" }}
+  Project: {{ task.project.name|default:"N/A" }}
+{% endfor %}
+
+{% endif %}
+View Dashboard: {{ dashboard_url }}
+
+{% if overdue_tasks %}
+⚠️ ACTION REQUIRED: You have {{ total_overdue }} overdue task{{ total_overdue|pluralize }}. 
+Please prioritize these tasks and update their status.
+{% endif %}
+
+Stay on top of your tasks and deadlines. If you need assistance or have any questions, 
+please contact your project manager.
+
+Best regards,
+{{ site_name }} Team
+
+---
+This is an automated email. Please do not reply to this message.
+Need help? Contact us at {{ support_email|default:"support@taskmanager.com" }}
+

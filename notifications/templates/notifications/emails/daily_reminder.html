@@ -1,0 +1,82 @@
+{% extends "notifications/emails/base.html" %}
+
+{% block header_title %}Daily Task Reminder{% endblock %}
+
+{% block content %}
+<h2>Hello {{ user.get_full_name_or_username }}!</h2>
+
+<p>Here's your daily task reminder for today. You have tasks that need your attention:</p>
+
+{% if overdue_tasks %}
+<div class="danger-box">
+    <h3 style="margin-top: 0;">⚠️ Overdue Tasks ({{ total_overdue }})</h3>
+    <ul style="margin: 10px 0; padding-left: 20px;">
+        {% for task in overdue_tasks %}
+        <li style="margin: 8px 0;">
+            <strong>{{ task.title }}</strong> - 
+            <span style="color: #dc2626;">Due: {{ task.due_date|date:"M d, Y" }}</span>
+            {% if task.project %}
+            <br><span style="color: #6b7280; font-size: 14px;">Project: {{ task.project.name }}</span>
+            {% endif %}
+        </li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+
+{% if tasks_due_today %}
+<div class="warning-box">
+    <h3 style="margin-top: 0;">📅 Tasks Due Today ({{ total_tasks_due_today }})</h3>
+    <ul style="margin: 10px 0; padding-left: 20px;">
+        {% for task in tasks_due_today %}
+        <li style="margin: 8px 0;">
+            <strong>{{ task.title }}</strong>
+            {% if task.project %}
+            <br><span style="color: #6b7280; font-size: 14px;">Project: {{ task.project.name }}</span>
+            {% endif %}
+        </li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+
+{% if upcoming_tasks %}
+<div class="info-box">
+    <h3 style="margin-top: 0;">⏰ Upcoming Deadlines ({{ total_upcoming }})</h3>
+    <p style="margin-bottom: 10px;">Tasks due in the next 1-2 days:</p>
+    <ul style="margin: 10px 0; padding-left: 20px;">
+        {% for task in upcoming_tasks %}
+        <li style="margin: 8px 0;">
+            <strong>{{ task.title }}</strong> - 
+            <span style="color: #059669;">Due: {{ task.due_date|date:"M d, Y" }}</span>
+            {% if task.project %}
+            <br><span style="color: #6b7280; font-size: 14px;">Project: {{ task.project.name }}</span>
+            {% endif %}
+        </li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+
+<p style="text-align: center; margin-top: 30px;">
+    <a href="{{ dashboard_url }}" class="button">View Dashboard</a>
+</p>
+
+{% if overdue_tasks %}
+<p style="margin-top: 30px; color: #dc2626;">
+    <strong>⚠️ Action Required:</strong> You have {{ total_overdue }} overdue task{{ total_overdue|pluralize }}. 
+    Please prioritize these tasks and update their status.
+</p>
+{% endif %}
+
+<p style="margin-top: 20px;">
+    Stay on top of your tasks and deadlines. If you need assistance or have any questions, 
+    please contact your project manager.
+</p>
+
+<p style="margin-top: 20px;">
+    Best regards,<br>
+    <strong>{{ site_name }} Team</strong>
+</p>
+{% endblock %}
+

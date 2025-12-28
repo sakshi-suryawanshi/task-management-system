@@ -1,0 +1,33 @@
+Hello {{ user.get_full_name_or_username }}!
+
+You have been assigned a new task.
+
+Task: {{ task.title }}
+{% if task.description %}
+Description: {{ task.description|truncatewords:50 }}
+{% endif %}
+
+Project: {{ project.name }}
+Priority: {{ task.get_priority_display }}
+{% if task.due_date %}
+Due Date: {{ task.due_date|date:"F d, Y g:i A" }}
+{% endif %}
+Status: {{ task.get_status_display }}
+{% if assigner %}
+Assigned by: {{ assigner.get_full_name_or_username }}
+{% endif %}
+
+View Task: {{ task_url }}
+
+You can view this task and all your assigned tasks in your dashboard. 
+If you have any questions about this task, please reach out to your project manager.
+
+Best regards,
+{{ site_name }} Team
+
+---
+This is an automated email. Please do not reply to this message.
+{% if support_email %}
+Need help? Contact us at {{ support_email }}
+{% endif %}
+

@@ -12,6 +12,7 @@ and task discovery mechanisms.
 import os
 import logging
 from celery import Celery
+from celery.schedules import crontab
 from celery.signals import setup_logging
 
 # Set the default Django settings module for the 'celery' program.
@@ -73,4 +74,73 @@ def debug_task(self):
     logger.info(f'Debug task executed: Request={self.request!r}')
     print(f'Debug task executed: Request={self.request!r}')
     return f'Task executed successfully: {self.request.id}'
+
+
+# ============================================================================
+# Celery Beat Schedule Configuration
+# ============================================================================
+# 
+# This section configures periodic tasks that run on a schedule.
+# Tasks are scheduled using crontab syntax for precise timing control.
+#
+# Schedule Format:
+#   crontab(minute='*', hour='*', day_of_week='*', day_of_month='*', month_of_year='*')
+#
+# Examples:
+#   - Daily at 9:00 AM: crontab(hour=9, minute=0)
+#   - Every Monday at 9:00 AM: crontab(hour=9, minute=0, day_of_week=1)
+#   - First day of month at 2:00 AM: crontab(hour=2, minute=0, day_of_month=1)
+#   - Every Sunday at 2:00 AM: crontab(hour=2, minute=0, day_of_week=0)
+#
+# Note: Since we're using django-celery-beat with DatabaseScheduler,
+# these schedules can also be managed dynamically via Django admin.
+# However, defining them here provides a default configuration.
+# ============================================================================
+
+app.conf.beat_schedule = {
+    # Daily Task Reminders
+    # Runs every day at 9:00 AM to send reminders about tasks due today or overdue
+    'send-daily-reminders': {
+        'task': 'notifications.tasks.send_daily_reminders',
+        'schedule': crontab(hour=9, minute=0),  # Daily at 9:00 AM
+        'options': {
+            'expires': 3600,  # Task expires after 1 hour if not executed
+        },
+    },
+    
+    # Weekly Digest Email
+    # Runs every Monday at 9:00 AM to send weekly activity summary
+    'send-weekly-digest': {
+        'task': 'notifications.tasks.send_weekly_digest',
+        'schedule': crontab(hour=9, minute=0, day_of_week=1),  # Every Monday at 9:00 AM
+        'options': {
+            'expires': 7200,  # Task expires after 2 hours if not executed
+        },
+    },
+    
+    # Cleanup Old Notifications
+    # Runs every Sunday at 2:00 AM to remove old read notifications
+    'cleanup-old-notifications': {
+        'task': 'notifications.tasks.cleanup_old_notifications',
+        'schedule': crontab(hour=2, minute=0, day_of_week=0),  # Every Sunday at 2:00 AM
+        'kwargs': {'days_old': 30},  # Delete notifications older than 30 days
+        'options': {
+            'expires': 3600,  # Task expires after 1 hour if not executed
+        },
+    },
+    
+    # Archive Completed Projects
+    # Runs on the first day of each month at 2:00 AM to archive old completed projects
+    'archive-completed-projects': {
+        'task': 'projects.tasks.archive_completed_projects',
+        'schedule': crontab(hour=2, minute=0, day_of_month=1),  # First day of month at 2:00 AM
+        'kwargs': {'days_since_completion': 90},  # Archive projects completed 90+ days ago
+        'options': {
+            'expires': 7200,  # Task expires after 2 hours if not executed
+        },
+    },
+}
+
+# Timezone for scheduled tasks
+app.conf.timezone = 'UTC'
 

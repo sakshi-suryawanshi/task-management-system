@@ -49,8 +49,8 @@ INSTALLED_APPS = [
     # Local apps
     'users.apps.UsersConfig',  # Use custom AppConfig to load signals
     'teams',
-    'projects',
-    'tasks',
+    'projects.apps.ProjectsConfig',  # Use custom AppConfig to load signals
+    'tasks.apps.TasksConfig',  # Use custom AppConfig to load signals
     'notifications',
     'core.apps.CoreConfig',  # Use custom AppConfig to load signals
 ]
@@ -310,13 +310,20 @@ CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
 # }
 
 # Email Configuration
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+# SMTP backend configuration for sending emails via Celery tasks
+EMAIL_BACKEND = env('EMAIL_BACKEND', default='django.core.mail.backends.smtp.EmailBackend')
 EMAIL_HOST = env('EMAIL_HOST', default='smtp.gmail.com')
 EMAIL_PORT = env.int('EMAIL_PORT', default=587)
 EMAIL_USE_TLS = env.bool('EMAIL_USE_TLS', default=True)
+EMAIL_USE_SSL = env.bool('EMAIL_USE_SSL', default=False)  # Use SSL instead of TLS if needed
 EMAIL_HOST_USER = env('EMAIL_HOST_USER', default='')
 EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD', default='')
 DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='noreply@taskmanager.com')
+
+# Additional email settings for email templates
+SITE_NAME = env('SITE_NAME', default='Task Management System')
+FRONTEND_URL = env('FRONTEND_URL', default='http://localhost:3000')
+SUPPORT_EMAIL = env('SUPPORT_EMAIL', default=DEFAULT_FROM_EMAIL)
 
 # API Documentation (drf-spectacular)
 # Comprehensive OpenAPI 3.0 schema configuration for Swagger/ReDoc documentation

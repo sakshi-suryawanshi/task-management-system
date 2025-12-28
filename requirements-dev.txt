@@ -14,6 +14,9 @@
 # ----------------------------------------------------------------------------
 # Testing Framework
 # ----------------------------------------------------------------------------
+# requests: HTTP library for API testing
+requests==2.32.3
+
 # pytest: Python testing framework
 pytest==8.3.4
 
