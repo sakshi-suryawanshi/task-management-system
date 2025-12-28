@@ -48,5 +48,6 @@ USER appuser
 EXPOSE 8000
 
 # Default command (can be overridden in docker-compose.yml)
-CMD ["gunicorn", "taskmanager.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3", "--timeout", "120"]
+# Uses gunicorn_config.py for comprehensive configuration
+CMD ["gunicorn", "taskmanager.wsgi:application", "--config", "gunicorn_config.py"]
 
