@@ -209,8 +209,6 @@ nano .env  # or use your preferred editor
 - Redis configuration
 - Email settings (for notifications)
 
-See [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md) for complete configuration guide.
-
 #### 3. Build and Start Services
 
 ```bash
@@ -260,13 +258,6 @@ curl http://localhost:8000/health/
 # Test database connection
 docker-compose exec web python manage.py dbshell
 ```
-
-### Next Steps
-
-- 📖 Read the [Quick Start Guide](QUICK_START.md) for detailed setup
-- 📚 Explore [Setup Documentation](docs/SETUP.md) for advanced configuration
-- 🔌 Check [API Documentation](docs/API_DOCUMENTATION_GUIDE.md) for API usage
-- 🏗️ Review [Architecture Documentation](ARCHITECTURE.md) for system design
 
 ---
 
@@ -421,8 +412,6 @@ ActivityLog
 │  (Celery, Celery Beat, Workers)         │
 └─────────────────────────────────────────┘
 ```
-
-For detailed architecture documentation, see [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ---
 ### API Documentation (Swagger UI)
@@ -995,13 +984,6 @@ task-management-system/
 │   └── workflows/            # GitHub Actions CI/CD
 │       └── ci.yml            # CI/CD pipeline
 │
-├── docs/                       # Documentation
-│   ├── SETUP.md              # Setup guide
-│   ├── DEPLOYMENT.md         # Deployment guide
-│   ├── ENVIRONMENT_VARIABLES.md  # Environment variables
-│   ├── API_DOCUMENTATION_GUIDE.md # API docs guide
-│   ├── SWAGGER_QUICK_START.md    # Swagger guide
-│   └── CI_CD_GUIDE.md        # CI/CD guide
 │
 ├── logs/                       # Application logs
 │   └── django.log             # Django application logs
@@ -1023,10 +1005,7 @@ task-management-system/
 ├── factories.py                # Test data factories
 │
 ├── README.md                   # This file
-├── ARCHITECTURE.md             # Architecture documentation
-├── TASK_LIST.md                # Development task list
-├── QUICK_START.md              # Quick start guide
-└── IMPLEMENTATION_GUIDE.md     # Implementation guide
+
 ```
 
 ---
