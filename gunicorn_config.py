@@ -23,8 +23,9 @@ import logging.config
 # ============================================================================
 
 # The socket to bind to (IP:PORT or unix socket path)
-# Default: '127.0.0.1:8000' - Changed to '0.0.0.0:8000' for Docker
-bind = os.environ.get('GUNICORN_BIND', '0.0.0.0:8000')
+# Default: '0.0.0.0:8000' for Docker (allows external connections)
+# Note: This is set via command line in docker-compose.yml to ensure it works correctly
+# bind = os.environ.get('GUNICORN_BIND', '0.0.0.0:8000')  # Commented out - using command line --bind instead
 
 # The number of pending connections (backlog)
 # This is the maximum number of pending connections to the server
