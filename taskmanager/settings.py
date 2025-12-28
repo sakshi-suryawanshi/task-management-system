@@ -27,7 +27,7 @@ SECRET_KEY = env('SECRET_KEY', default='django-insecure-change-in-production')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env('DEBUG', default=False)
 
-ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['localhost', '127.0.0.1', '0.0.0.0'])
+ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['localhost', '127.0.0.1', '0.0.0.0', 'testserver'])
 
 # Application definition
 INSTALLED_APPS = [
@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     # Third party apps
     'rest_framework',
     'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',  # Token blacklist for enhanced security
     'corsheaders',
     'drf_spectacular',
     'django_celery_beat',
@@ -51,7 +52,7 @@ INSTALLED_APPS = [
     'projects',
     'tasks',
     'notifications',
-    'core',
+    'core.apps.CoreConfig',  # Use custom AppConfig to load signals
 ]
 
 MIDDLEWARE = [
@@ -170,17 +171,44 @@ REST_FRAMEWORK = {
 }
 
 # JWT Settings
+# Comprehensive JWT configuration for production-ready authentication
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
-    'ROTATE_REFRESH_TOKENS': True,
-    'BLACKLIST_AFTER_ROTATION': True,
-    'ALGORITHM': 'HS256',
+    # Token lifetimes
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),  # Short-lived access tokens
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),  # Longer-lived refresh tokens
+    'ROTATE_REFRESH_TOKENS': True,  # Rotate refresh token on each use
+    'BLACKLIST_AFTER_ROTATION': True,  # Blacklist old tokens after rotation
+    
+    # Token algorithm and signing
+    'ALGORITHM': 'HS256',  # HMAC with SHA-256
     'SIGNING_KEY': SECRET_KEY,
-    'AUTH_HEADER_TYPES': ('Bearer',),
+    'VERIFYING_KEY': None,  # For symmetric algorithms, same as SIGNING_KEY
+    'AUDIENCE': None,
+    'ISSUER': None,
+    
+    # Token header configuration
+    'AUTH_HEADER_TYPES': ('Bearer',),  # Authorization: Bearer <token>
     'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',
-    'USER_ID_FIELD': 'id',
-    'USER_ID_CLAIM': 'user_id',
+    'USER_ID_FIELD': 'id',  # Field in User model to use as token identifier
+    'USER_ID_CLAIM': 'user_id',  # Claim name in token payload
+    
+    # Token type
+    'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
+    'TOKEN_TYPE_CLAIM': 'token_type',
+    
+    # JTI (JWT ID) claim for token blacklisting
+    'JTI_CLAIM': 'jti',
+    
+    # Token sliding (optional, for session-like behavior)
+    'SLIDING_TOKEN_REFRESH_EXP_CLAIM': 'refresh_exp',
+    'SLIDING_TOKEN_LIFETIME': timedelta(minutes=5),
+    'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=1),
+    
+    # Additional claims (optional)
+    'TOKEN_OBTAIN_SERIALIZER': 'rest_framework_simplejwt.serializers.TokenObtainPairSerializer',
+    'TOKEN_REFRESH_SERIALIZER': 'rest_framework_simplejwt.serializers.TokenRefreshSerializer',
+    'TOKEN_VERIFY_SERIALIZER': 'rest_framework_simplejwt.serializers.TokenVerifySerializer',
+    'TOKEN_BLACKLIST_SERIALIZER': 'rest_framework_simplejwt.serializers.TokenBlacklistSerializer',
 }
 
 # CORS Configuration
