@@ -12,7 +12,7 @@ from django.shortcuts import get_object_or_404
 from django.contrib.auth import get_user_model
 from django.db.models import Q
 from django.utils import timezone
-from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter
+from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter, OpenApiExample
 
 from .models import Task, TaskComment
 from .serializers import (
@@ -170,43 +170,126 @@ class TaskListCreateView(generics.ListCreateAPIView):
         )
 
 
+@extend_schema_view(
+    get=extend_schema(
+        tags=['Tasks'],
+        summary='Get task details',
+        description="""
+        Retrieve detailed information about a specific task.
+        
+        Returns complete task information including:
+        - Task details (title, description, status, priority, due_date)
+        - Project information
+        - Assignee information
+        - Creator information
+        - Computed fields (is_overdue, days_until_due, is_assigned)
+        - Comments and attachments count
+        
+        **Authentication:** Required (JWT Bearer token)
+        **Permissions:** User must have access to the task (project member, assignee, or creator)
+        """,
+        responses={
+            200: TaskSerializer,
+            404: {'description': 'Task not found or user does not have access'},
+        },
+    ),
+    put=extend_schema(
+        tags=['Tasks'],
+        summary='Update task (full)',
+        description="""
+        Perform a full update of task information. All fields must be provided.
+        
+        **Authentication:** Required (JWT Bearer token)
+        **Permissions:** User must be project admin/owner or task creator
+        
+        **Note:** For partial updates, use PATCH method instead.
+        """,
+        request=TaskSerializer,
+        responses={
+            200: {
+                'description': 'Task updated successfully',
+            },
+            400: {'description': 'Validation error'},
+            403: {
+                'description': 'Insufficient permissions',
+                'examples': [
+                    OpenApiExample(
+                        'Error Response',
+                        value={
+                            'error': 'Only project admins/owners or task creator can update tasks.',
+                        },
+                    ),
+                ],
+            },
+            404: {'description': 'Task not found'},
+        },
+    ),
+    patch=extend_schema(
+        tags=['Tasks'],
+        summary='Update task (partial)',
+        description="""
+        Perform a partial update of task information. Only provided fields will be updated.
+        
+        **Authentication:** Required (JWT Bearer token)
+        **Permissions:** User must be project admin/owner or task creator
+        
+        **Note:** This is the recommended method for updating tasks as it allows
+        updating only specific fields without requiring all fields.
+        """,
+        request=TaskSerializer,
+        responses={
+            200: {
+                'description': 'Task updated successfully',
+            },
+            400: {'description': 'Validation error'},
+            403: {'description': 'Insufficient permissions'},
+            404: {'description': 'Task not found'},
+        },
+    ),
+    delete=extend_schema(
+        tags=['Tasks'],
+        summary='Delete task',
+        description="""
+        Delete a task. This action cannot be undone.
+        
+        **Authentication:** Required (JWT Bearer token)
+        **Permissions:** User must be project admin/owner or task creator
+        
+        **Warning:** This will delete the task and all associated comments and attachments.
+        """,
+        responses={
+            204: {
+                'description': 'Task deleted successfully',
+                'examples': [
+                    OpenApiExample(
+                        'Success Response',
+                        value={'message': 'Task "Implement user authentication" deleted successfully'},
+                    ),
+                ],
+            },
+            403: {
+                'description': 'Insufficient permissions',
+                'examples': [
+                    OpenApiExample(
+                        'Error Response',
+                        value={
+                            'error': 'Only project admins/owners or task creator can delete tasks.',
+                        },
+                    ),
+                ],
+            },
+            404: {'description': 'Task not found'},
+        },
+    ),
+)
 class TaskDetailView(generics.RetrieveUpdateDestroyAPIView):
     """
     API endpoint for retrieving, updating, and deleting a task.
     
-    GET /api/tasks/{id}/
-        Retrieve a specific task's details.
-        Returns task information including assignee, project, and computed fields.
-    
-    PUT /api/tasks/{id}/
-        Full update of task information.
-        All fields must be provided.
-        
-        Request Body:
-            {
-                "title": "Updated Task Title",
-                "description": "Updated description",
-                "status": "in_progress",
-                "priority": "medium",
-                "due_date": "2025-12-31T23:59:59Z",
-                "project": 1,
-                "assignee": 2
-            }
-    
-    PATCH /api/tasks/{id}/
-        Partial update of task information.
-        Only provided fields will be updated.
-    
-    DELETE /api/tasks/{id}/
-        Delete a task. Only project admins/owners or task creator can delete tasks.
-        
-        Response (204 No Content): Task deleted successfully
-    
-    Authentication: Required (JWT token)
-    Permissions:
-        - GET: User must have access to the task (project member, assignee, or creator)
-        - PUT/PATCH: User must have access to the task and be project admin/owner or creator
-        - DELETE: User must be project admin/owner or task creator
+    GET /api/tasks/{id}/ - Get task details
+    PUT /api/tasks/{id}/ - Full update (requires admin/owner or creator)
+    PATCH /api/tasks/{id}/ - Partial update (requires admin/owner or creator)
+    DELETE /api/tasks/{id}/ - Delete task (requires admin/owner or creator)
     """
     
     serializer_class = TaskSerializer
@@ -347,35 +430,103 @@ class TaskDetailView(generics.RetrieveUpdateDestroyAPIView):
         )
 
 
+@extend_schema(
+    tags=['Tasks'],
+    summary='Assign or unassign task',
+    description="""
+        Assign or unassign a task to a user.
+        
+    **Authentication:** Required (JWT Bearer token)
+    **Permissions:**
+    - To assign: User must be project admin/owner
+    - To unassign: User must be project admin/owner, task creator, or current assignee
+    
+    **Request Body:**
+    - `assignee_id` (optional): User ID to assign the task to. Set to `null` to unassign.
+      - Assignee must be a member of the project
+    
+    **Validation Rules:**
+    - User must exist (if assigning)
+    - Assignee must be a member of the project (if assigning)
+    
+    **Response:**
+    Returns the updated task with assignee information.
+    """,
+    request=TaskAssigneeSerializer,
+    responses={
+        200: {
+            'description': 'Task assigned/unassigned successfully',
+            'examples': [
+                OpenApiExample(
+                    'Assign Success',
+                    value={
+                        'data': {
+                            'id': 1,
+                            'title': 'Implement user authentication',
+                            'assignee': 2,
+                            'assignee_username': 'johndoe',
+                            'is_assigned': True,
+                        },
+                        'message': 'Task assigned successfully',
+                    },
+                ),
+                OpenApiExample(
+                    'Unassign Success',
+                    value={
+                        'data': {
+                            'id': 1,
+                            'title': 'Implement user authentication',
+                            'assignee': None,
+                            'assignee_username': None,
+                            'is_assigned': False,
+                        },
+                        'message': 'Task unassigned successfully',
+                    },
+                ),
+            ],
+        },
+        400: {
+            'description': 'Validation error',
+            'examples': [
+                OpenApiExample(
+                    'Not Project Member',
+                    value={'error': 'Assignee must be a member of the project.'},
+                ),
+            ],
+        },
+        403: {
+            'description': 'Insufficient permissions',
+            'examples': [
+                OpenApiExample(
+                    'Cannot Assign',
+                    value={'error': 'Only project admins and owners can assign tasks.'},
+                ),
+            ],
+        },
+        404: {
+            'description': 'Task or user not found',
+        },
+    },
+    examples=[
+        OpenApiExample(
+            'Assign Request',
+            value={
+                'assignee_id': 2,
+            },
+        ),
+        OpenApiExample(
+            'Unassign Request',
+            value={
+                'assignee_id': None,
+            },
+        ),
+    ],
+)
 class TaskAssigneeView(APIView):
     """
     API endpoint for assigning/unassigning tasks.
     
-    POST /api/tasks/{task_id}/assign/
-        Assign or unassign a task to a user.
-        
-        Request Body:
-            {
-                "assignee_id": 2  // User ID to assign, or null to unassign
-            }
-        
-        Response (200 OK):
-            {
-                "data": {
-                    "id": 1,
-                    "title": "Implement user authentication",
-                    ...
-                    "assignee": 2,
-                    "assignee_username": "johndoe",
-                    "is_assigned": true
-                },
-                "message": "Task assigned successfully"
-            }
-    
-    Authentication: Required (JWT token)
-    Permissions:
-        - User must be project admin/owner to assign tasks
-        - User must be project admin/owner, task creator, or current assignee to unassign
+    POST /api/tasks/{task_id}/assign/ - Assign or unassign a task
     """
     
     permission_classes = [permissions.IsAuthenticated]
@@ -479,34 +630,91 @@ class TaskAssigneeView(APIView):
         )
 
 
+@extend_schema(
+    tags=['Tasks'],
+    summary='Update task status',
+    description="""
+        Update the status of a task.
+        
+    **Authentication:** Required (JWT Bearer token)
+    **Permissions:**
+    - General: User must be task assignee, task creator, or project admin/owner
+    - For "done" status: User must be task assignee or project admin/owner
+    
+    **Request Body:**
+    - `status` (required): New status value
+      - Valid values: `todo`, `in_progress`, `done`, `blocked`
+    
+    **Status Transitions:**
+    - Any user with permission can set status to: `todo`, `in_progress`, `blocked`
+    - Only assignee or project admin/owner can set status to: `done`
+    
+    **Response:**
+    Returns the updated task with new status information.
+    """,
+    request=TaskStatusUpdateSerializer,
+    responses={
+        200: {
+            'description': 'Task status updated successfully',
+            'examples': [
+                OpenApiExample(
+                    'Success Response',
+                    value={
+                        'data': {
+                            'id': 1,
+                            'title': 'Implement user authentication',
+                            'status': 'in_progress',
+                            'status_display': 'In Progress',
+                        },
+                        'message': 'Task status updated successfully',
+                    },
+                ),
+            ],
+        },
+        400: {
+            'description': 'Validation error',
+            'examples': [
+                OpenApiExample(
+                    'Invalid Status',
+                    value={'status': ['Invalid status value.']},
+                ),
+            ],
+        },
+        403: {
+            'description': 'Insufficient permissions',
+            'examples': [
+                OpenApiExample(
+                    'Cannot Update Status',
+                    value={
+                        'error': 'You do not have permission to update this task status.',
+                    },
+                ),
+                OpenApiExample(
+                    'Cannot Mark Done',
+                    value={
+                        'error': 'Only the task assignee or project admins/owners can mark tasks as done.',
+                    },
+                ),
+            ],
+        },
+        404: {
+            'description': 'Task not found',
+        },
+    },
+    examples=[
+        OpenApiExample(
+            'Update Status Request',
+            value={
+                'status': 'in_progress',
+            },
+        ),
+    ],
+)
 class TaskStatusUpdateView(APIView):
     """
     API endpoint for updating task status.
     
-    PATCH /api/tasks/{task_id}/status/
-        Update the status of a task.
-        
-        Request Body:
-            {
-                "status": "in_progress"  // todo, in_progress, done, blocked
-            }
-        
-        Response (200 OK):
-            {
-                "data": {
-                    "id": 1,
-                    "title": "Implement user authentication",
-                    "status": "in_progress",
-                    "status_display": "In Progress",
-                    ...
-                },
-                "message": "Task status updated successfully"
-            }
-    
-    Authentication: Required (JWT token)
-    Permissions:
-        - User must be task assignee, task creator, or project admin/owner
-        - For marking as "done", user must be task assignee or project admin/owner
+    PATCH /api/tasks/{task_id}/status/ - Update task status
     """
     
     permission_classes = [permissions.IsAuthenticated]
@@ -597,70 +805,88 @@ class TaskStatusUpdateView(APIView):
         )
 
 
+@extend_schema_view(
+    get=extend_schema(
+        tags=['Tasks'],
+        summary='List task comments',
+        description="""
+        List all comments for a specific task.
+        
+        Comments are ordered by creation date (newest first).
+        Supports pagination with default page size of 20 items.
+        
+        **Authentication:** Required (JWT Bearer token)
+        **Permissions:** User must have access to the task (project member, assignee, or creator)
+        
+        **Query Parameters:**
+        - `page`: Page number for pagination (default: 1)
+        - `page_size`: Number of items per page (default: 20)
+        """,
+        responses={
+            200: TaskCommentSerializer(many=True),
+            404: {'description': 'Task not found or user does not have access'},
+        },
+    ),
+    post=extend_schema(
+        tags=['Tasks'],
+        summary='Create task comment',
+        description="""
+        Create a new comment on a task. The author is automatically set to the current user.
+        
+        **Authentication:** Required (JWT Bearer token)
+        **Permissions:** User must have access to the task (project member, assignee, or creator)
+        
+        **Request Body:**
+        - `content` (required): Comment content/text
+        
+        **Response:**
+        Returns the created comment with full details including author information.
+        """,
+        request=TaskCommentSerializer,
+        responses={
+            201: {
+                'description': 'Comment created successfully',
+                'examples': [
+                    OpenApiExample(
+                        'Success Response',
+                        value={
+                            'data': {
+                                'id': 1,
+                                'task': 1,
+                                'task_title': 'Implement user authentication',
+                                'author': 2,
+                                'author_username': 'johndoe',
+                                'author_email': 'john@example.com',
+                                'author_full_name': 'John Doe',
+                                'content': 'This task is progressing well.',
+                                'is_edited': False,
+                                'created_at': '2025-12-27T15:00:00Z',
+                                'updated_at': '2025-12-27T15:00:00Z',
+                            },
+                            'message': 'Comment created successfully',
+                        },
+                    ),
+                ],
+            },
+            400: {'description': 'Validation error'},
+            404: {'description': 'Task not found or user does not have access'},
+        },
+        examples=[
+            OpenApiExample(
+                'Create Comment Request',
+                value={
+                    'content': 'This task is progressing well.',
+                },
+            ),
+        ],
+    ),
+)
 class CommentListCreateView(generics.ListCreateAPIView):
     """
     API endpoint for listing and creating task comments.
     
-    GET /api/tasks/{task_id}/comments/
-        List all comments for a specific task.
-        Comments are ordered by creation date (newest first).
-        Supports pagination.
-        
-        Query Parameters:
-            - page: Page number for pagination
-            - page_size: Number of items per page (default: 20)
-        
-        Response (200 OK):
-            {
-                "count": 10,
-                "next": "http://example.com/api/tasks/1/comments/?page=2",
-                "previous": null,
-                "results": [
-                    {
-                        "id": 1,
-                        "task": 1,
-                        "task_title": "Implement user authentication",
-                        "author": 2,
-                        "author_username": "johndoe",
-                        "author_email": "john@example.com",
-                        "author_full_name": "John Doe",
-                        "content": "Great progress on this task!",
-                        "is_edited": false,
-                        "created_at": "2025-12-27T15:00:00Z",
-                        "updated_at": "2025-12-27T15:00:00Z"
-                    },
-                    ...
-                ]
-            }
-    
-    POST /api/tasks/{task_id}/comments/
-        Create a new comment on a task. The author is automatically set to the current user.
-        
-        Request Body:
-            {
-                "content": "This task is progressing well."
-            }
-        
-        Response (201 Created):
-            {
-                "data": {
-                    "id": 1,
-                    "task": 1,
-                    "task_title": "Implement user authentication",
-                    "author": 2,
-                    "author_username": "johndoe",
-                    "author_email": "john@example.com",
-                    "author_full_name": "John Doe",
-                    "content": "This task is progressing well.",
-                    "is_edited": false,
-                    "created_at": "2025-12-27T15:00:00Z",
-                    "updated_at": "2025-12-27T15:00:00Z"
-                },
-                "message": "Comment created successfully"
-            }
-    
-    Authentication: Required (JWT token)
-    Permissions: User must have access to the task (project member, assignee, or creator)
+    GET /api/tasks/{task_id}/comments/ - List all comments for a task
+    POST /api/tasks/{task_id}/comments/ - Create a new comment
     """
     
     serializer_class = TaskCommentSerializer
@@ -742,37 +968,126 @@ class CommentListCreateView(generics.ListCreateAPIView):
         )
 
 
+@extend_schema_view(
+    get=extend_schema(
+        tags=['Tasks'],
+        summary='Get comment details',
+        description="""
+        Retrieve detailed information about a specific comment.
+        
+        Returns complete comment information including:
+        - Comment content
+        - Author details (username, email, full name)
+        - Task information
+        - Timestamps (created_at, updated_at)
+        - Edit status (is_edited)
+        
+        **Authentication:** Required (JWT Bearer token)
+        **Permissions:** User must have access to the task (project member, assignee, or creator)
+        """,
+        responses={
+            200: TaskCommentSerializer,
+            404: {'description': 'Comment or task not found'},
+        },
+    ),
+    put=extend_schema(
+        tags=['Tasks'],
+        summary='Update comment (full)',
+        description="""
+        Perform a full update of comment information. All fields must be provided.
+        
+        **Authentication:** Required (JWT Bearer token)
+        **Permissions:** User must be the comment author or project admin/owner
+        
+        **Note:** For partial updates, use PATCH method instead.
+        """,
+        request=TaskCommentSerializer,
+        responses={
+            200: {
+                'description': 'Comment updated successfully',
+            },
+            400: {'description': 'Validation error'},
+            403: {
+                'description': 'Insufficient permissions',
+                'examples': [
+                    OpenApiExample(
+                        'Error Response',
+                        value={
+                            'error': 'Only comment author or project admins/owners can update comments.',
+                        },
+                    ),
+                ],
+            },
+            404: {'description': 'Comment not found'},
+        },
+    ),
+    patch=extend_schema(
+        tags=['Tasks'],
+        summary='Update comment (partial)',
+        description="""
+        Perform a partial update of comment information. Only provided fields will be updated.
+        
+        **Authentication:** Required (JWT Bearer token)
+        **Permissions:** User must be the comment author or project admin/owner
+        
+        **Note:** This is the recommended method for updating comments as it allows
+        updating only specific fields without requiring all fields.
+        """,
+        request=TaskCommentSerializer,
+        responses={
+            200: {
+                'description': 'Comment updated successfully',
+            },
+            400: {'description': 'Validation error'},
+            403: {'description': 'Insufficient permissions'},
+            404: {'description': 'Comment not found'},
+        },
+    ),
+    delete=extend_schema(
+        tags=['Tasks'],
+        summary='Delete comment',
+        description="""
+        Delete a comment. This action cannot be undone.
+        
+        **Authentication:** Required (JWT Bearer token)
+        **Permissions:** User must be comment author, project admin/owner, or task creator
+        
+        **Response:**
+        Returns a success message confirming the comment was deleted.
+        """,
+        responses={
+            204: {
+                'description': 'Comment deleted successfully',
+                'examples': [
+                    OpenApiExample(
+                        'Success Response',
+                        value={'message': 'Comment "Great progress on this task!..." deleted successfully'},
+                    ),
+                ],
+            },
+            403: {
+                'description': 'Insufficient permissions',
+                'examples': [
+                    OpenApiExample(
+                        'Error Response',
+                        value={
+                            'error': 'Only comment author, project admins/owners, or task creator can delete comments.',
+                        },
+                    ),
+                ],
+            },
+            404: {'description': 'Comment not found'},
+        },
+    ),
+)
 class CommentDetailView(generics.RetrieveUpdateDestroyAPIView):
     """
     API endpoint for retrieving, updating, and deleting a task comment.
     
-    GET /api/tasks/{task_id}/comments/{id}/
-        Retrieve a specific comment's details.
-        Returns comment information including author details.
-    
-    PUT /api/tasks/{task_id}/comments/{id}/
-        Full update of comment information.
-        All fields must be provided.
-        
-        Request Body:
-            {
-                "content": "Updated comment content"
-            }
-    
-    PATCH /api/tasks/{task_id}/comments/{id}/
-        Partial update of comment information.
-        Only provided fields will be updated.
-    
-    DELETE /api/tasks/{task_id}/comments/{id}/
-        Delete a comment. Only comment author, project admins/owners, or task creator can delete comments.
-        
-        Response (204 No Content): Comment deleted successfully
-    
-    Authentication: Required (JWT token)
-    Permissions:
-        - GET: User must have access to the task (project member, assignee, or creator)
-        - PUT/PATCH: User must be the comment author or project admin/owner
-        - DELETE: User must be comment author, project admin/owner, or task creator
+    GET /api/tasks/{task_id}/comments/{id}/ - Get comment details
+    PUT /api/tasks/{task_id}/comments/{id}/ - Full update (requires author or admin/owner)
+    PATCH /api/tasks/{task_id}/comments/{id}/ - Partial update (requires author or admin/owner)
+    DELETE /api/tasks/{task_id}/comments/{id}/ - Delete comment (requires author, admin/owner, or creator)
     """
     
     serializer_class = TaskCommentSerializer

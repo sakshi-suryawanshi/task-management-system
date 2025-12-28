@@ -12,7 +12,7 @@ from django.shortcuts import get_object_or_404
 from django.contrib.auth import get_user_model
 from django.db.models import Count, Q
 from django.utils import timezone
-from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter
+from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter, OpenApiExample
 
 from .models import Project, ProjectMember
 from .serializers import (
@@ -140,42 +140,132 @@ class ProjectListCreateView(generics.ListCreateAPIView):
         )
 
 
+@extend_schema_view(
+    get=extend_schema(
+        tags=['Projects'],
+        summary='Get project details',
+        description="""
+        Retrieve detailed information about a specific project.
+        
+        Returns complete project information including:
+        - Project details (name, description, status, priority, deadline)
+        - Team information
+        - All project members with their roles
+        - Task statistics (total, by status, by priority)
+        - Computed fields (is_overdue, days_until_deadline, member_count)
+        
+        **Authentication:** Required (JWT Bearer token)
+        **Permissions:** User must be a member of the project
+        """,
+        responses={
+            200: ProjectSerializer,
+            404: {'description': 'Project not found or user is not a member'},
+        },
+    ),
+    put=extend_schema(
+        tags=['Projects'],
+        summary='Update project (full)',
+        description="""
+        Perform a full update of project information. All fields must be provided.
+        
+        **Authentication:** Required (JWT Bearer token)
+        **Permissions:** User must be an admin or owner of the project
+        
+        **Note:** For partial updates, use PATCH method instead.
+        """,
+        request=ProjectSerializer,
+        responses={
+            200: {
+                'description': 'Project updated successfully',
+                'examples': [
+                    OpenApiExample(
+                        'Success Response',
+                        value={
+                            'data': {
+                                'id': 1,
+                                'name': 'Website Redesign',
+                                'description': 'Complete redesign of company website',
+                                'status': 'active',
+                                'priority': 'high',
+                                'deadline': '2025-12-31T23:59:59Z',
+                                'team': 1,
+                                'member_count': 5,
+                                'task_count': 20,
+                            },
+                            'message': 'Project updated successfully',
+                        },
+                    ),
+                ],
+            },
+            400: {'description': 'Validation error'},
+            403: {'description': 'Insufficient permissions'},
+            404: {'description': 'Project not found'},
+        },
+    ),
+    patch=extend_schema(
+        tags=['Projects'],
+        summary='Update project (partial)',
+        description="""
+        Perform a partial update of project information. Only provided fields will be updated.
+        
+        **Authentication:** Required (JWT Bearer token)
+        **Permissions:** User must be an admin or owner of the project
+        
+        **Note:** This is the recommended method for updating projects as it allows
+        updating only specific fields without requiring all fields.
+        """,
+        request=ProjectSerializer,
+        responses={
+            200: {
+                'description': 'Project updated successfully',
+            },
+            400: {'description': 'Validation error'},
+            403: {'description': 'Insufficient permissions'},
+            404: {'description': 'Project not found'},
+        },
+    ),
+    delete=extend_schema(
+        tags=['Projects'],
+        summary='Delete project',
+        description="""
+        Delete a project. This action cannot be undone.
+        
+        **Authentication:** Required (JWT Bearer token)
+        **Permissions:** User must be the owner of the project
+        
+        **Warning:** This will delete the project and all associated tasks, comments, and attachments.
+        """,
+        responses={
+            204: {
+                'description': 'Project deleted successfully',
+                'examples': [
+                    OpenApiExample(
+                        'Success Response',
+                        value={'message': 'Project "Website Redesign" deleted successfully'},
+                    ),
+                ],
+            },
+            403: {
+                'description': 'Only project owners can delete projects',
+                'examples': [
+                    OpenApiExample(
+                        'Error Response',
+                        value={'error': 'Only project owners can delete projects.'},
+                    ),
+                ],
+            },
+            404: {'description': 'Project not found'},
+        },
+    ),
+)
 class ProjectDetailView(generics.RetrieveUpdateDestroyAPIView):
     """
     API endpoint for retrieving, updating, and deleting a project.
     
-    GET /api/projects/{id}/
-        Retrieve a specific project's details.
-        Returns project information including all members and task statistics.
-    
-    PUT /api/projects/{id}/
-        Full update of project information.
-        All fields must be provided.
-        
-        Request Body:
-            {
-                "name": "Updated Project Name",
-                "description": "Updated description",
-                "status": "active",
-                "priority": "medium",
-                "deadline": "2025-12-31T23:59:59Z",
-                "team": 1
-            }
-    
-    PATCH /api/projects/{id}/
-        Partial update of project information.
-        Only provided fields will be updated.
-    
-    DELETE /api/projects/{id}/
-        Delete a project. Only project owners can delete projects.
-        
-        Response (204 No Content): Project deleted successfully
-    
-    Authentication: Required (JWT token)
-    Permissions:
-        - GET: User must be a member of the project
-        - PUT/PATCH: User must be an admin or owner of the project
-        - DELETE: User must be the owner of the project
+    GET /api/projects/{id}/ - Get project details
+    PUT /api/projects/{id}/ - Full update (requires admin/owner)
+    PATCH /api/projects/{id}/ - Partial update (requires admin/owner)
+    DELETE /api/projects/{id}/ - Delete project (requires owner)
     """
     
     serializer_class = ProjectSerializer
@@ -307,70 +397,185 @@ class ProjectDetailView(generics.RetrieveUpdateDestroyAPIView):
         )
 
 
+@extend_schema_view(
+    post=extend_schema(
+        tags=['Projects'],
+        summary='Add project member',
+        description="""
+        Add a new member to a project.
+        
+        **Authentication:** Required (JWT Bearer token)
+        **Permissions:** User must be an admin or owner of the project
+        
+        **Request Body:**
+        - `user_id` (required): ID of the user to add to the project
+        - `role` (optional): Role to assign (owner, admin, member). Defaults to 'member'
+          - Only project owners can assign the 'owner' role
+        
+        **Validation Rules:**
+        - User must exist
+        - User cannot already be a member of the project
+        - User must be a member of the project's team
+        - Only project owners can assign the 'owner' role
+        
+        **Response:**
+        Returns the created project member with full details including user information.
+        """,
+        request=ProjectMemberAddSerializer,
+        responses={
+            201: {
+                'description': 'Member added successfully',
+                'examples': [
+                    OpenApiExample(
+                        'Success Response',
+                        value={
+                            'data': {
+                                'id': 1,
+                                'user': 2,
+                                'username': 'johndoe',
+                                'email': 'john@example.com',
+                                'full_name': 'John Doe',
+                                'role': 'member',
+                                'role_display': 'Member',
+                                'joined_at': '2025-12-27T15:00:00Z',
+                            },
+                            'message': 'Member added successfully',
+                        },
+                    ),
+                ],
+            },
+            400: {
+                'description': 'Validation error',
+                'examples': [
+                    OpenApiExample(
+                        'User Already Member',
+                        value={'error': 'User is already a member of this project.'},
+                    ),
+                    OpenApiExample(
+                        'Not Team Member',
+                        value={
+                            'error': 'User must be a member of the project\'s team to be added to the project.',
+                        },
+                    ),
+                ],
+            },
+            403: {
+                'description': 'Insufficient permissions',
+            },
+            404: {
+                'description': 'User or project not found',
+            },
+        },
+        examples=[
+            OpenApiExample(
+                'Add Member Request',
+                value={
+                    'user_id': 2,
+                    'role': 'member',
+                },
+            ),
+        ],
+    ),
+    patch=extend_schema(
+        tags=['Projects'],
+        summary='Update project member role',
+        description="""
+        Update a member's role in the project.
+        
+        **Authentication:** Required (JWT Bearer token)
+        **Permissions:** User must be an admin or owner of the project
+        
+        **Request Body:**
+        - `role` (required): New role to assign (owner, admin, member)
+          - Only project owners can assign the 'owner' role
+          - Cannot change the role of the project owner
+        
+        **Validation Rules:**
+        - Member must exist in the project
+        - Cannot change the role of the project owner
+        - Only project owners can assign the 'owner' role
+        
+        **Response:**
+        Returns the updated project member with new role information.
+        """,
+        request=ProjectMemberUpdateSerializer,
+        responses={
+            200: {
+                'description': 'Member role updated successfully',
+            },
+            400: {
+                'description': 'Validation error',
+                'examples': [
+                    OpenApiExample(
+                        'Cannot Change Owner Role',
+                        value={'error': 'Cannot change the role of the project owner.'},
+                    ),
+                ],
+            },
+            403: {
+                'description': 'Insufficient permissions',
+            },
+            404: {
+                'description': 'Member not found',
+            },
+        },
+        examples=[
+            OpenApiExample(
+                'Update Role Request',
+                value={
+                    'role': 'admin',
+                },
+            ),
+        ],
+    ),
+    delete=extend_schema(
+        tags=['Projects'],
+        summary='Remove project member',
+        description="""
+        Remove a member from the project.
+        
+        **Authentication:** Required (JWT Bearer token)
+        **Permissions:** User must be an admin or owner of the project
+        
+        **Validation Rules:**
+        - Member must exist in the project
+        - Cannot remove the project owner
+        - Cannot remove yourself (contact another admin or owner)
+        
+        **Response:**
+        Returns a success message confirming the member was removed.
+        """,
+        responses={
+            204: {
+                'description': 'Member removed successfully',
+            },
+            400: {
+                'description': 'Validation error',
+                'examples': [
+                    OpenApiExample(
+                        'Cannot Remove Owner',
+                        value={
+                            'error': 'Cannot remove the project owner. Transfer ownership first or delete the project.',
+                        },
+                    ),
+                ],
+            },
+            403: {
+                'description': 'Insufficient permissions',
+            },
+            404: {
+                'description': 'Member not found',
+            },
+        },
+    ),
+)
 class ProjectMemberView(APIView):
     """
     API endpoint for managing project members.
     
-    POST /api/projects/{project_id}/members/
-        Add a new member to the project.
-        
-        Request Body:
-            {
-                "user_id": 2,
-                "role": "member"  // optional, defaults to "member"
-            }
-        
-        Response (201 Created):
-            {
-                "data": {
-                    "id": 1,
-                    "user": 2,
-                    "username": "johndoe",
-                    "email": "john@example.com",
-                    "full_name": "John Doe",
-                    "role": "member",
-                    "role_display": "Member",
-                    "joined_at": "2025-12-27T15:00:00Z"
-                },
-                "message": "Member added successfully"
-            }
-    
-    DELETE /api/projects/{project_id}/members/{user_id}/
-        Remove a member from the project.
-        
-        Response (204 No Content): Member removed successfully
-    
-    PATCH /api/projects/{project_id}/members/{user_id}/
-        Update a member's role in the project.
-        
-        Request Body:
-            {
-                "role": "admin"
-            }
-        
-        Response (200 OK):
-            {
-                "data": {
-                    "id": 1,
-                    "user": 2,
-                    "username": "johndoe",
-                    "email": "john@example.com",
-                    "full_name": "John Doe",
-                    "role": "admin",
-                    "role_display": "Admin",
-                    "joined_at": "2025-12-27T15:00:00Z"
-                },
-                "message": "Member role updated successfully"
-            }
-    
-    Authentication: Required (JWT token)
-    Permissions:
-        - POST (add member): User must be an admin or owner of the project
-        - PATCH (update role): User must be an admin or owner of the project
-        - DELETE (remove member): User must be an admin or owner of the project
-        - Cannot remove project owner
-        - Cannot change owner role
-        - User must be a member of the project's team to be added
+    POST /api/projects/{project_id}/members/ - Add a new member to the project
+    PATCH /api/projects/{project_id}/members/{user_id}/ - Update a member's role
+    DELETE /api/projects/{project_id}/members/{user_id}/ - Remove a member from the project
     """
     
     permission_classes = [permissions.IsAuthenticated]
@@ -589,67 +794,104 @@ class ProjectMemberView(APIView):
         )
 
 
+@extend_schema(
+    tags=['Projects'],
+    summary='Get project statistics',
+    description="""
+    Get comprehensive statistics and analytics for a project.
+    
+    Returns detailed project analytics including:
+    - Project overview (status, priority, deadline, overdue status)
+    - Task statistics (total, by status, completion percentage)
+    - Priority distribution (high, medium, low)
+    - Task status timeline (created/completed this week/month)
+    - Member activity (tasks assigned and completed per member)
+    - Overdue tasks count
+    - Upcoming deadlines (next 7 days)
+    
+    **Authentication:** Required (JWT Bearer token)
+    **Permissions:** User must be a member of the project
+    
+    **Use Cases:**
+    - Project dashboards
+    - Progress tracking
+    - Performance monitoring
+    - Team productivity analysis
+    """,
+    responses={
+        200: {
+            'description': 'Project statistics retrieved successfully',
+            'examples': [
+                OpenApiExample(
+                    'Statistics Response',
+                    value={
+                        'data': {
+                            'project_id': 1,
+                            'project_name': 'Website Redesign',
+                            'status': 'active',
+                            'status_display': 'Active',
+                            'priority': 'high',
+                            'priority_display': 'High',
+                            'deadline': '2025-12-31T23:59:59Z',
+                            'is_overdue': False,
+                            'days_until_deadline': 5,
+                            'member_count': 5,
+                            'task_statistics': {
+                                'total': 20,
+                                'todo': 5,
+                                'in_progress': 8,
+                                'done': 6,
+                                'blocked': 1,
+                                'completion_percentage': 30.0,
+                            },
+                            'priority_distribution': {
+                                'high': 8,
+                                'medium': 10,
+                                'low': 2,
+                            },
+                            'task_status_timeline': {
+                                'created_this_week': 5,
+                                'completed_this_week': 3,
+                                'created_this_month': 12,
+                                'completed_this_month': 8,
+                            },
+                            'member_activity': [
+                                {
+                                    'user_id': 1,
+                                    'username': 'johndoe',
+                                    'full_name': 'John Doe',
+                                    'role': 'admin',
+                                    'tasks_assigned': 5,
+                                    'tasks_completed': 3,
+                                },
+                            ],
+                            'overdue_tasks': 2,
+                            'upcoming_deadlines': [
+                                {
+                                    'task_id': 1,
+                                    'title': 'Design mockups',
+                                    'due_date': '2025-12-28T23:59:59Z',
+                                    'days_until_due': 1,
+                                    'priority': 'high',
+                                    'status': 'in_progress',
+                                },
+                            ],
+                        },
+                        'message': 'Project statistics retrieved successfully',
+                    },
+                ),
+            ],
+        },
+        404: {
+            'description': 'Project not found or user is not a member',
+        },
+    },
+)
 class ProjectStatsView(APIView):
     """
     API endpoint for project analytics and statistics.
     
-    GET /api/projects/{project_id}/stats/
-        Get comprehensive statistics and analytics for a project.
-        
-        Response (200 OK):
-            {
-                "data": {
-                    "project_id": 1,
-                    "project_name": "Website Redesign",
-                    "status": "active",
-                    "priority": "high",
-                    "deadline": "2025-12-31T23:59:59Z",
-                    "is_overdue": false,
-                    "days_until_deadline": 5,
-                    "member_count": 5,
-                    "task_statistics": {
-                        "total": 20,
-                        "todo": 5,
-                        "in_progress": 8,
-                        "done": 6,
-                        "blocked": 1,
-                        "completion_percentage": 30.0
-                    },
-                    "priority_distribution": {
-                        "high": 8,
-                        "medium": 10,
-                        "low": 2
-                    },
-                    "task_status_timeline": {
-                        "created_this_week": 5,
-                        "completed_this_week": 3,
-                        "created_this_month": 12,
-                        "completed_this_month": 8
-                    },
-                    "member_activity": [
-                        {
-                            "user_id": 1,
-                            "username": "johndoe",
-                            "tasks_assigned": 5,
-                            "tasks_completed": 3
-                        },
-                        ...
-                    ],
-                    "overdue_tasks": 2,
-                    "upcoming_deadlines": [
-                        {
-                            "task_id": 1,
-                            "title": "Design mockups",
-                            "due_date": "2025-12-28T23:59:59Z",
-                            "days_until_due": 1
-                        },
-                        ...
-                    ]
-                }
-            }
-    
-    Authentication: Required (JWT token)
-    Permissions: User must be a member of the project
+    GET /api/projects/{project_id}/stats/ - Get comprehensive project statistics
     """
     
     permission_classes = [permissions.IsAuthenticated, IsProjectMember]

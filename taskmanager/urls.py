@@ -13,17 +13,26 @@ from drf_spectacular.views import (
     SpectacularRedocView,
     SpectacularSwaggerView,
 )
-from rest_framework_simplejwt.views import (
+from core.jwt_views import (
     TokenObtainPairView,
     TokenRefreshView,
     TokenVerifyView,
     TokenBlacklistView,
 )
-from core.views import health_check
+from core.views import (
+    health_check,  # Backward compatibility
+    HealthCheckView,
+    DatabaseHealthCheckView,
+    RedisHealthCheckView,
+)
 
 urlpatterns = [
-    # Health check endpoint
-    path('health/', health_check, name='health-check'),
+    # Health check endpoints
+    # Overall health check (checks all services)
+    path('health/', HealthCheckView.as_view(), name='health-check'),
+    # Individual service health checks
+    path('health/db/', DatabaseHealthCheckView.as_view(), name='health-db'),
+    path('health/redis/', RedisHealthCheckView.as_view(), name='health-redis'),
     
     # Admin
     path('admin/', admin.site.urls),

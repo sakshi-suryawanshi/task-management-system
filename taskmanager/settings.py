@@ -564,48 +564,406 @@ if not DEBUG:
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
 
+# ============================================================================
 # Logging Configuration
+# ============================================================================
+# Production-ready structured logging configuration with log rotation.
+# Supports JSON structured logging for production and human-readable format for development.
+# Logs are separated by component (Django, Celery, Application) for better organization.
+
+import json
+import logging
+import logging.config
+# Note: RotatingFileHandler and TimedRotatingFileHandler are referenced as strings
+# in the LOGGING config, so explicit imports are not required but kept for clarity
+
+# Create logs directory if it doesn't exist
+LOGS_DIR = os.path.join(BASE_DIR, 'logs')
+os.makedirs(LOGS_DIR, exist_ok=True)
+
+# Logging configuration from environment variables
+LOG_LEVEL = env('LOG_LEVEL', default='INFO').upper()
+DJANGO_LOG_LEVEL = env('DJANGO_LOG_LEVEL', default=LOG_LEVEL).upper()
+CELERY_LOG_LEVEL = env('CELERY_LOG_LEVEL', default=LOG_LEVEL).upper()
+APP_LOG_LEVEL = env('APP_LOG_LEVEL', default=LOG_LEVEL).upper()
+
+# Use structured JSON logging in production, verbose in development
+USE_JSON_LOGGING = env.bool('USE_JSON_LOGGING', default=not DEBUG)
+
+# Log rotation settings
+LOG_MAX_BYTES = env.int('LOG_MAX_BYTES', default=10 * 1024 * 1024)  # 10MB
+LOG_BACKUP_COUNT = env.int('LOG_BACKUP_COUNT', default=10)  # Keep 10 backup files
+LOG_ROTATION_WHEN = env('LOG_ROTATION_WHEN', default='midnight')  # Rotate at midnight
+LOG_ROTATION_INTERVAL = env.int('LOG_ROTATION_INTERVAL', default=1)  # Daily rotation
+
+
+class JSONFormatter(logging.Formatter):
+    """
+    Custom JSON formatter for structured logging.
+    Formats log records as JSON for easy parsing and analysis.
+    """
+    
+    def format(self, record):
+        """
+        Format log record as JSON.
+        
+        Args:
+            record: LogRecord instance
+            
+        Returns:
+            str: JSON-formatted log entry
+        """
+        log_data = {
+            'timestamp': self.formatTime(record, self.datefmt),
+            'level': record.levelname,
+            'logger': record.name,
+            'module': record.module,
+            'function': record.funcName,
+            'line': record.lineno,
+            'message': record.getMessage(),
+            'process_id': record.process,
+            'thread_id': record.thread,
+            'thread_name': record.threadName,
+        }
+        
+        # Add exception information if present
+        if record.exc_info:
+            log_data['exception'] = self.formatException(record.exc_info)
+        
+        # Add extra fields if present
+        if hasattr(record, 'user_id'):
+            log_data['user_id'] = record.user_id
+        if hasattr(record, 'request_id'):
+            log_data['request_id'] = record.request_id
+        if hasattr(record, 'ip_address'):
+            log_data['ip_address'] = record.ip_address
+        if hasattr(record, 'path'):
+            log_data['path'] = record.path
+        if hasattr(record, 'method'):
+            log_data['method'] = record.method
+        if hasattr(record, 'status_code'):
+            log_data['status_code'] = record.status_code
+        
+        return json.dumps(log_data, default=str)
+
+
+# Configure logging
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
     'formatters': {
         'verbose': {
-            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'format': '{levelname} {asctime} [{name}] {module}.{funcName}:{lineno} {process:d} {thread:d} - {message}',
             'style': '{',
+            'datefmt': '%Y-%m-%d %H:%M:%S',
         },
         'simple': {
-            'format': '{levelname} {message}',
+            'format': '{levelname} {asctime} [{name}] - {message}',
             'style': '{',
+            'datefmt': '%Y-%m-%d %H:%M:%S',
+        },
+        'json': {
+            '()': JSONFormatter,
+            'datefmt': '%Y-%m-%d %H:%M:%S',
+        },
+        'detailed': {
+            'format': '{levelname} {asctime} [{name}] {pathname}:{lineno} {funcName}() {process:d} {thread:d} - {message}',
+            'style': '{',
+            'datefmt': '%Y-%m-%d %H:%M:%S',
+        },
+    },
+    'filters': {
+        'require_debug_false': {
+            '()': 'django.utils.log.RequireDebugFalse',
+        },
+        'require_debug_true': {
+            '()': 'django.utils.log.RequireDebugTrue',
         },
     },
     'handlers': {
         'console': {
             'class': 'logging.StreamHandler',
-            'formatter': 'verbose',
+            'formatter': 'verbose' if DEBUG else 'simple',
+            'level': 'DEBUG' if DEBUG else 'INFO',
         },
-        'file': {
-            'class': 'logging.FileHandler',
-            'filename': os.path.join(BASE_DIR, 'logs', 'django.log'),
-            'formatter': 'verbose',
+        'django_file': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(LOGS_DIR, 'django.log'),
+            'maxBytes': LOG_MAX_BYTES,
+            'backupCount': LOG_BACKUP_COUNT,
+            'formatter': 'json' if USE_JSON_LOGGING else 'verbose',
+            'level': DJANGO_LOG_LEVEL,
+        },
+        'celery_file': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(LOGS_DIR, 'celery.log'),
+            'maxBytes': LOG_MAX_BYTES,
+            'backupCount': LOG_BACKUP_COUNT,
+            'formatter': 'json' if USE_JSON_LOGGING else 'verbose',
+            'level': CELERY_LOG_LEVEL,
+        },
+        'application_file': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(LOGS_DIR, 'application.log'),
+            'maxBytes': LOG_MAX_BYTES,
+            'backupCount': LOG_BACKUP_COUNT,
+            'formatter': 'json' if USE_JSON_LOGGING else 'verbose',
+            'level': APP_LOG_LEVEL,
+        },
+        'error_file': {
+            'class': 'logging.handlers.TimedRotatingFileHandler',
+            'filename': os.path.join(LOGS_DIR, 'errors.log'),
+            'when': LOG_ROTATION_WHEN,
+            'interval': LOG_ROTATION_INTERVAL,
+            'backupCount': LOG_BACKUP_COUNT,
+            'formatter': 'json' if USE_JSON_LOGGING else 'detailed',
+            'level': 'ERROR',
+        },
+        'security_file': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(LOGS_DIR, 'security.log'),
+            'maxBytes': LOG_MAX_BYTES,
+            'backupCount': LOG_BACKUP_COUNT,
+            'formatter': 'json' if USE_JSON_LOGGING else 'detailed',
+            'level': 'WARNING',
         },
     },
     'root': {
-        'handlers': ['console'],
-        'level': 'INFO',
+        'handlers': ['console', 'application_file'],
+        'level': LOG_LEVEL,
     },
     'loggers': {
+        # Django framework logger
         'django': {
-            'handlers': ['console', 'file'],
-            'level': env('DJANGO_LOG_LEVEL', default='INFO'),
+            'handlers': ['console', 'django_file'],
+            'level': DJANGO_LOG_LEVEL,
             'propagate': False,
         },
-        'celery': {
-            'handlers': ['console', 'file'],
+        # Django database queries (can be verbose, disabled by default)
+        'django.db.backends': {
+            'handlers': ['console', 'django_file'],
+            'level': 'DEBUG' if DEBUG else 'WARNING',
+            'propagate': False,
+        },
+        # Django request/response logging
+        'django.request': {
+            'handlers': ['console', 'django_file', 'error_file'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+        # Django server (runserver) logging
+        'django.server': {
+            'handlers': ['console', 'django_file'],
             'level': 'INFO',
+            'propagate': False,
+        },
+        # Django template system
+        'django.template': {
+            'handlers': ['console', 'django_file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        # Django security (CSRF, etc.)
+        'django.security': {
+            'handlers': ['console', 'security_file', 'error_file'],
+            'level': 'WARNING',
+            'propagate': False,
+        },
+        # Celery logger
+        'celery': {
+            'handlers': ['console', 'celery_file'],
+            'level': CELERY_LOG_LEVEL,
+            'propagate': False,
+        },
+        'celery.task': {
+            'handlers': ['console', 'celery_file'],
+            'level': CELERY_LOG_LEVEL,
+            'propagate': False,
+        },
+        'celery.worker': {
+            'handlers': ['console', 'celery_file'],
+            'level': CELERY_LOG_LEVEL,
+            'propagate': False,
+        },
+        # Application-specific loggers
+        'users': {
+            'handlers': ['console', 'application_file'],
+            'level': APP_LOG_LEVEL,
+            'propagate': False,
+        },
+        'teams': {
+            'handlers': ['console', 'application_file'],
+            'level': APP_LOG_LEVEL,
+            'propagate': False,
+        },
+        'projects': {
+            'handlers': ['console', 'application_file'],
+            'level': APP_LOG_LEVEL,
+            'propagate': False,
+        },
+        'tasks': {
+            'handlers': ['console', 'application_file'],
+            'level': APP_LOG_LEVEL,
+            'propagate': False,
+        },
+        'notifications': {
+            'handlers': ['console', 'application_file'],
+            'level': APP_LOG_LEVEL,
+            'propagate': False,
+        },
+        'core': {
+            'handlers': ['console', 'application_file'],
+            'level': APP_LOG_LEVEL,
+            'propagate': False,
+        },
+        # Third-party loggers
+        'PIL': {  # Pillow (image processing)
+            'handlers': ['console'],
+            'level': 'WARNING',
+            'propagate': False,
+        },
+        'urllib3': {  # HTTP library
+            'handlers': ['console'],
+            'level': 'WARNING',
             'propagate': False,
         },
     },
 }
 
-# Create logs directory if it doesn't exist
-os.makedirs(os.path.join(BASE_DIR, 'logs'), exist_ok=True)
+# ============================================================================
+# Sentry Error Tracking Configuration
+# ============================================================================
+# Production-ready error tracking and performance monitoring using Sentry.
+# Sentry provides real-time error tracking, performance monitoring, release tracking,
+# and user context for debugging production issues.
+#
+# Features:
+# - Automatic error capture from Django views, Celery tasks, and background jobs
+# - User context (user ID, username, email) attached to errors
+# - Request context (URL, method, headers, IP address) attached to errors
+# - Performance monitoring (transaction tracking, slow queries)
+# - Release tracking (version, deployment tracking)
+# - Environment-based configuration (development vs production)
+#
+# Setup:
+# 1. Sign up for a free account at https://sentry.io
+# 2. Create a new project and get your DSN (Data Source Name)
+# 3. Set SENTRY_DSN environment variable with your DSN
+# 4. Optionally configure other Sentry settings via environment variables
+#
+# Documentation: https://docs.sentry.io/platforms/python/guides/django/
+
+import sentry_sdk
+from sentry_sdk.integrations.django import DjangoIntegration
+from sentry_sdk.integrations.celery import CeleryIntegration
+from sentry_sdk.integrations.logging import LoggingIntegration
+from sentry_sdk.integrations.redis import RedisIntegration
+
+# Sentry DSN (Data Source Name) - Get this from your Sentry project settings
+# Format: https://<key>@<organization>.ingest.sentry.io/<project-id>
+# If not set, Sentry will be disabled (useful for local development)
+SENTRY_DSN = env('SENTRY_DSN', default='')
+
+# Sentry environment (development, staging, production)
+SENTRY_ENVIRONMENT = env('SENTRY_ENVIRONMENT', default='development' if DEBUG else 'production')
+
+# Sentry release version (optional, useful for tracking deployments)
+# Can be set to git commit hash, version number, or deployment identifier
+SENTRY_RELEASE = env('SENTRY_RELEASE', default=None)
+
+# Sentry sample rate for performance monitoring (0.0 to 1.0)
+# 1.0 = 100% of transactions are sampled (can be expensive)
+# 0.1 = 10% of transactions are sampled (recommended for production)
+SENTRY_TRACES_SAMPLE_RATE = env.float('SENTRY_TRACES_SAMPLE_RATE', default=0.1 if not DEBUG else 1.0)
+
+# Sentry sample rate for profiling (0.0 to 1.0)
+# Profiling provides detailed performance data but is resource-intensive
+# Only enable in production if needed for performance debugging
+SENTRY_PROFILES_SAMPLE_RATE = env.float('SENTRY_PROFILES_SAMPLE_RATE', default=0.0)
+
+# Enable Sentry (useful for disabling in local development)
+# Set to 'false' to disable Sentry even if DSN is provided
+SENTRY_ENABLED = env.bool('SENTRY_ENABLED', default=bool(SENTRY_DSN))
+
+# Initialize Sentry SDK if DSN is provided and enabled
+if SENTRY_ENABLED and SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        environment=SENTRY_ENVIRONMENT,
+        release=SENTRY_RELEASE,
+        
+        # Performance monitoring
+        traces_sample_rate=SENTRY_TRACES_SAMPLE_RATE,
+        profiles_sample_rate=SENTRY_PROFILES_SAMPLE_RATE,
+        
+        # Integrations
+        integrations=[
+            # Django integration - captures exceptions, request context, user context
+            DjangoIntegration(
+                transaction_style='url',  # Use URL as transaction name
+                middleware_spans=True,  # Track middleware execution
+                signals_spans=True,  # Track Django signals
+                cache_spans=True,  # Track cache operations
+            ),
+            # Celery integration - captures task exceptions and context
+            CeleryIntegration(
+                monitor_beat_tasks=True,  # Monitor Celery Beat scheduled tasks
+            ),
+            # Logging integration - captures log messages as Sentry events
+            LoggingIntegration(
+                level=logging.INFO,  # Capture INFO and above
+                event_level=logging.ERROR,  # Send ERROR and above as events
+            ),
+            # Redis integration - captures Redis operation errors
+            RedisIntegration(),
+        ],
+        
+        # User context
+        # Automatically captures user information from Django's request.user
+        send_default_pii=True,  # Send personally identifiable information (email, username)
+        
+        # Error filtering
+        # Ignore common errors that don't need tracking
+        ignore_errors=[
+            # Django built-in exceptions
+            'django.http.Http404',
+            'django.http.Http403',
+            'django.http.Http400',
+            'django.core.exceptions.PermissionDenied',
+            'django.core.exceptions.ValidationError',
+            # DRF exceptions
+            'rest_framework.exceptions.ValidationError',
+            'rest_framework.exceptions.PermissionDenied',
+            'rest_framework.exceptions.AuthenticationFailed',
+            'rest_framework.exceptions.NotFound',
+            'rest_framework.exceptions.Throttled',
+        ],
+        
+        # Before send callback - filter or modify events before sending
+        before_send=lambda event, hint: event,  # Can be customized to filter events
+        
+        # Debug mode (only enable in development)
+        debug=DEBUG,
+        
+        # Additional options
+        attach_stacktrace=True,  # Include stack traces in events
+        max_breadcrumbs=50,  # Maximum number of breadcrumbs (user actions) to track
+        max_value_length=250,  # Maximum length of string values in events
+    )
+    
+    # Log Sentry initialization
+    logger = logging.getLogger(__name__)
+    logger.info(
+        f'Sentry initialized successfully',
+        extra={
+            'environment': SENTRY_ENVIRONMENT,
+            'release': SENTRY_RELEASE,
+            'traces_sample_rate': SENTRY_TRACES_SAMPLE_RATE,
+        }
+    )
+elif SENTRY_DSN and not SENTRY_ENABLED:
+    logger = logging.getLogger(__name__)
+    logger.info('Sentry DSN provided but Sentry is disabled via SENTRY_ENABLED=false')
+else:
+    logger = logging.getLogger(__name__)
+    logger.info('Sentry not configured (SENTRY_DSN not set)')

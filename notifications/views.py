@@ -9,7 +9,7 @@ from rest_framework import status, generics, permissions, filters
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
-from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter
+from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter, OpenApiExample
 
 from .models import Notification
 from .serializers import (
@@ -247,46 +247,81 @@ class NotificationCountView(APIView):
         )
 
 
+@extend_schema(
+    tags=['Notifications'],
+    summary='Get notification details',
+    description="""
+    Retrieve detailed information about a specific notification.
+    
+    Returns complete notification information including:
+    - Notification message and type
+    - Read status and timestamps
+    - Related object information (task, project, etc.)
+    - Metadata (additional context)
+    - Computed fields (age_in_hours, age_in_days, is_recent)
+    - Display helpers (icon, type_display_class)
+    
+    **Authentication:** Required (JWT Bearer token)
+    **Permissions:** Users can only view their own notifications
+    
+    **Use Cases:**
+    - Display notification details in UI
+    - Show notification context and related objects
+    - Track notification age and status
+    """,
+    responses={
+        200: {
+            'description': 'Notification details retrieved successfully',
+            'examples': [
+                OpenApiExample(
+                    'Notification Response',
+                    value={
+                        'id': 1,
+                        'user': 1,
+                        'message': "You have been assigned to task 'Implement authentication'",
+                        'type': 'task_assigned',
+                        'type_display': 'Task Assigned',
+                        'read': False,
+                        'read_at': None,
+                        'related_content_type': 8,
+                        'related_object_id': 1,
+                        'related_object': 'Task: Implement authentication',
+                        'metadata': {'task_id': 1, 'project_id': 1},
+                        'created_at': '2025-12-27T15:00:00Z',
+                        'age_in_hours': 2,
+                        'age_in_days': 0,
+                        'is_recent': True,
+                        'icon': 'assignment',
+                        'type_display_class': 'task-assigned',
+                    },
+                ),
+            ],
+        },
+        403: {
+            'description': 'You can only view your own notifications',
+            'examples': [
+                OpenApiExample(
+                    'Error Response',
+                    value={'detail': 'You do not have permission to perform this action.'},
+                ),
+            ],
+        },
+        404: {
+            'description': 'Notification not found',
+            'examples': [
+                OpenApiExample(
+                    'Error Response',
+                    value={'detail': 'Not found.'},
+                ),
+            ],
+        },
+    },
+)
 class NotificationDetailView(generics.RetrieveAPIView):
     """
     API endpoint for retrieving a single notification.
     
-    GET /api/notifications/{id}/
-        Retrieve details of a specific notification.
-        
-        Response (200 OK):
-            {
-                "id": 1,
-                "user": 1,
-                "message": "You have been assigned to task 'Implement authentication'",
-                "type": "task_assigned",
-                "type_display": "Task Assigned",
-                "read": false,
-                "read_at": null,
-                "related_content_type": 8,
-                "related_object_id": 1,
-                "related_object": "Task: Implement authentication",
-                "metadata": {"task_id": 1, "project_id": 1},
-                "created_at": "2025-12-27T15:00:00Z",
-                "age_in_hours": 2,
-                "age_in_days": 0,
-                "is_recent": true,
-                "icon": "assignment",
-                "type_display_class": "task-assigned"
-            }
-        
-        Error Response (404 Not Found):
-            {
-                "detail": "Not found."
-            }
-        
-        Error Response (403 Forbidden):
-            {
-                "detail": "You do not have permission to perform this action."
-            }
-    
-    Authentication: Required (JWT token)
-    Permissions: Users can only view their own notifications
+    GET /api/notifications/{id}/ - Get notification details
     """
     
     serializer_class = NotificationSerializer

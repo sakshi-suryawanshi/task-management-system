@@ -347,70 +347,214 @@ class TeamDetailView(generics.RetrieveUpdateDestroyAPIView):
         )
 
 
+@extend_schema_view(
+    post=extend_schema(
+        tags=['Teams'],
+        summary='Add team member',
+        description="""
+        Add a new member to a team.
+        
+        **Authentication:** Required (JWT Bearer token)
+        **Permissions:** User must be an admin or owner of the team
+        
+        **Request Body:**
+        - `user_id` (required): ID of the user to add to the team
+        - `role` (optional): Role to assign (owner, admin, member). Defaults to 'member'
+          - Only team owners can assign the 'owner' role
+        
+        **Validation Rules:**
+        - User must exist
+        - User cannot already be a member of the team
+        - Only team owners can assign the 'owner' role
+        
+        **Response:**
+        Returns the created team member with full details including user information.
+        """,
+        request=TeamMemberAddSerializer,
+        responses={
+            201: {
+                'description': 'Member added successfully',
+                'examples': [
+                    OpenApiExample(
+                        'Success Response',
+                        value={
+                            'data': {
+                                'id': 1,
+                                'user': 2,
+                                'username': 'johndoe',
+                                'email': 'john@example.com',
+                                'full_name': 'John Doe',
+                                'role': 'member',
+                                'role_display': 'Member',
+                                'joined_at': '2025-12-27T15:00:00Z',
+                            },
+                            'message': 'Member added successfully',
+                        },
+                    ),
+                ],
+            },
+            400: {
+                'description': 'Validation error',
+                'examples': [
+                    OpenApiExample(
+                        'User Already Member',
+                        value={'error': 'User is already a member of this team.'},
+                    ),
+                ],
+            },
+            403: {
+                'description': 'Insufficient permissions',
+                'examples': [
+                    OpenApiExample(
+                        'Not Admin',
+                        value={'error': 'Only team admins and owners can add members.'},
+                    ),
+                ],
+            },
+            404: {
+                'description': 'User or team not found',
+            },
+        },
+        examples=[
+            OpenApiExample(
+                'Add Member Request',
+                value={
+                    'user_id': 2,
+                    'role': 'member',
+                },
+            ),
+        ],
+    ),
+    patch=extend_schema(
+        tags=['Teams'],
+        summary='Update team member role',
+        description="""
+        Update a member's role in the team.
+        
+        **Authentication:** Required (JWT Bearer token)
+        **Permissions:** User must be an admin or owner of the team
+        
+        **Request Body:**
+        - `role` (required): New role to assign (owner, admin, member)
+          - Only team owners can assign the 'owner' role
+          - Cannot change the role of the team owner
+        
+        **Validation Rules:**
+        - Member must exist in the team
+        - Cannot change the role of the team owner
+        - Only team owners can assign the 'owner' role
+        
+        **Response:**
+        Returns the updated team member with new role information.
+        """,
+        request=TeamMemberUpdateSerializer,
+        responses={
+            200: {
+                'description': 'Member role updated successfully',
+                'examples': [
+                    OpenApiExample(
+                        'Success Response',
+                        value={
+                            'data': {
+                                'id': 1,
+                                'user': 2,
+                                'username': 'johndoe',
+                                'email': 'john@example.com',
+                                'full_name': 'John Doe',
+                                'role': 'admin',
+                                'role_display': 'Admin',
+                                'joined_at': '2025-12-27T15:00:00Z',
+                            },
+                            'message': 'Member role updated successfully',
+                        },
+                    ),
+                ],
+            },
+            400: {
+                'description': 'Validation error',
+                'examples': [
+                    OpenApiExample(
+                        'Cannot Change Owner Role',
+                        value={'error': 'Cannot change the role of the team owner.'},
+                    ),
+                ],
+            },
+            403: {
+                'description': 'Insufficient permissions',
+            },
+            404: {
+                'description': 'Member not found',
+            },
+        },
+        examples=[
+            OpenApiExample(
+                'Update Role Request',
+                value={
+                    'role': 'admin',
+                },
+            ),
+        ],
+    ),
+    delete=extend_schema(
+        tags=['Teams'],
+        summary='Remove team member',
+        description="""
+        Remove a member from the team.
+        
+        **Authentication:** Required (JWT Bearer token)
+        **Permissions:** User must be an admin or owner of the team
+        
+        **Validation Rules:**
+        - Member must exist in the team
+        - Cannot remove the team owner
+        - Cannot remove yourself (contact another admin or owner)
+        
+        **Response:**
+        Returns a success message confirming the member was removed.
+        """,
+        responses={
+            204: {
+                'description': 'Member removed successfully',
+                'examples': [
+                    OpenApiExample(
+                        'Success Response',
+                        value={'message': 'Member "johndoe" removed from team successfully'},
+                    ),
+                ],
+            },
+            400: {
+                'description': 'Validation error',
+                'examples': [
+                    OpenApiExample(
+                        'Cannot Remove Owner',
+                        value={
+                            'error': 'Cannot remove the team owner. Transfer ownership first or delete the team.',
+                        },
+                    ),
+                    OpenApiExample(
+                        'Cannot Remove Self',
+                        value={
+                            'error': 'You cannot remove yourself from the team. Please contact another admin or owner.',
+                        },
+                    ),
+                ],
+            },
+            403: {
+                'description': 'Insufficient permissions',
+            },
+            404: {
+                'description': 'Member not found',
+            },
+        },
+    ),
+)
 class TeamMemberView(APIView):
     """
     API endpoint for managing team members.
     
-    POST /api/teams/{team_id}/members/
-        Add a new member to the team.
-        
-        Request Body:
-            {
-                "user_id": 2,
-                "role": "member"  // optional, defaults to "member"
-            }
-        
-        Response (201 Created):
-            {
-                "data": {
-                    "id": 1,
-                    "user": 2,
-                    "username": "johndoe",
-                    "email": "john@example.com",
-                    "full_name": "John Doe",
-                    "role": "member",
-                    "role_display": "Member",
-                    "joined_at": "2025-12-27T15:00:00Z"
-                },
-                "message": "Member added successfully"
-            }
-    
-    DELETE /api/teams/{team_id}/members/{user_id}/
-        Remove a member from the team.
-        
-        Response (204 No Content): Member removed successfully
-    
-    PATCH /api/teams/{team_id}/members/{user_id}/
-        Update a member's role in the team.
-        
-        Request Body:
-            {
-                "role": "admin"
-            }
-        
-        Response (200 OK):
-            {
-                "data": {
-                    "id": 1,
-                    "user": 2,
-                    "username": "johndoe",
-                    "email": "john@example.com",
-                    "full_name": "John Doe",
-                    "role": "admin",
-                    "role_display": "Admin",
-                    "joined_at": "2025-12-27T15:00:00Z"
-                },
-                "message": "Member role updated successfully"
-            }
-    
-    Authentication: Required (JWT token)
-    Permissions:
-        - POST (add member): User must be an admin or owner of the team
-        - PATCH (update role): User must be an admin or owner of the team
-        - DELETE (remove member): User must be an admin or owner of the team
-        - Cannot remove team owner
-        - Cannot change owner role
-        - Cannot remove yourself (use leave team endpoint if needed)
+    POST /api/teams/{team_id}/members/ - Add a new member to the team
+    PATCH /api/teams/{team_id}/members/{user_id}/ - Update a member's role
+    DELETE /api/teams/{team_id}/members/{user_id}/ - Remove a member from the team
     """
     
     permission_classes = [permissions.IsAuthenticated]

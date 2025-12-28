@@ -16,7 +16,12 @@ from django.contrib.contenttypes.models import ContentType
 from django.utils import timezone
 from datetime import timedelta
 
-from core.views import health_check
+from core.views import (
+    health_check,  # Backward compatibility
+    HealthCheckView,
+    DatabaseHealthCheckView,
+    RedisHealthCheckView,
+)
 from core.models import ActivityLog
 from factories import UserFactory, TaskFactory, ProjectFactory, TeamFactory
 
@@ -28,10 +33,308 @@ from factories import UserFactory, TaskFactory, ProjectFactory, TeamFactory
 @pytest.mark.django_db
 @pytest.mark.view
 class TestHealthCheckView:
-    """Test suite for health check endpoint."""
+    """Test suite for comprehensive health check endpoint."""
     
-    def test_health_check_all_healthy(self):
+    def test_health_check_all_healthy(self, api_client):
         """Test health check when all services are healthy."""
+        response = api_client.get('/health/')
+        
+        assert response.status_code == 200
+        data = response.data
+        assert data['status'] == 'healthy'
+        assert 'services' in data
+        assert 'database' in data['services']
+        assert data['services']['database']['status'] == 'healthy'
+        assert 'response_time_ms' in data['services']['database']
+        assert 'timestamp' in data
+        assert 'version' in data
+    
+    def test_health_check_database_unhealthy(self, api_client):
+        """Test health check when database is unhealthy."""
+        with patch.object(connection, 'cursor') as mock_cursor:
+            mock_cursor.side_effect = Exception("Database connection failed")
+            
+            response = api_client.get('/health/')
+            
+            assert response.status_code == 503
+            data = response.data
+            assert data['status'] == 'unhealthy'
+            assert 'database' in data['services']
+            assert data['services']['database']['status'] == 'unhealthy'
+            assert 'error' in data['services']['database']
+    
+    def test_health_check_redis_healthy(self, api_client):
+        """Test health check when Redis is healthy."""
+        with patch('core.views.redis') as mock_redis:
+            mock_client = MagicMock()
+            mock_client.ping.return_value = True
+            mock_redis.from_url.return_value = mock_client
+            
+            with patch.object(settings, 'CELERY_BROKER_URL', 'redis://localhost:6379/0'):
+                response = api_client.get('/health/')
+                
+                assert response.status_code == 200
+                data = response.data
+                assert 'redis' in data['services']
+                assert data['services']['redis']['status'] == 'healthy'
+                assert 'response_time_ms' in data['services']['redis']
+    
+    def test_health_check_redis_unhealthy(self, api_client):
+        """Test health check when Redis is unhealthy."""
+        with patch('core.views.redis') as mock_redis:
+            mock_client = MagicMock()
+            mock_client.ping.side_effect = Exception("Redis connection failed")
+            mock_redis.from_url.return_value = mock_client
+            
+            with patch.object(settings, 'CELERY_BROKER_URL', 'redis://localhost:6379/0'):
+                with patch.object(settings, 'DEBUG', False):  # In production, Redis failure makes it unhealthy
+                    response = api_client.get('/health/')
+                    
+                    assert response.status_code == 503
+                    data = response.data
+                    assert data['status'] == 'unhealthy'
+                    assert 'redis' in data['services']
+                    assert data['services']['redis']['status'] == 'unhealthy'
+                    assert 'error' in data['services']['redis']
+    
+    def test_health_check_redis_not_configured(self, api_client):
+        """Test health check when Redis is not configured."""
+        with patch.object(settings, 'CELERY_BROKER_URL', None):
+            response = api_client.get('/health/')
+            
+            assert response.status_code == 200
+            data = response.data
+            assert 'redis' in data['services']
+            assert data['services']['redis']['status'] == 'not_configured'
+    
+    def test_health_check_redis_unhealthy_in_debug_mode(self, api_client):
+        """Test health check when Redis is unhealthy but DEBUG=True (should not fail)."""
+        with patch('core.views.redis') as mock_redis:
+            mock_client = MagicMock()
+            mock_client.ping.side_effect = Exception("Redis connection failed")
+            mock_redis.from_url.return_value = mock_client
+            
+            with patch.object(settings, 'CELERY_BROKER_URL', 'redis://localhost:6379/0'):
+                with patch.object(settings, 'DEBUG', True):  # In debug mode, Redis failure doesn't fail health check
+                    response = api_client.get('/health/')
+                    
+                    # Should still return 200 in debug mode even if Redis fails
+                    assert response.status_code == 200
+                    data = response.data
+                    assert 'redis' in data['services']
+                    assert data['services']['redis']['status'] == 'unhealthy'
+    
+    def test_health_check_response_structure(self, api_client):
+        """Test health check response structure."""
+        response = api_client.get('/health/')
+        
+        assert response.status_code == 200
+        data = response.data
+        assert 'status' in data
+        assert 'timestamp' in data
+        assert 'version' in data
+        assert 'services' in data
+        assert 'response_time_ms' in data
+        assert isinstance(data['services'], dict)
+    
+    def test_health_check_no_authentication_required(self, api_client):
+        """Test that health check endpoint doesn't require authentication."""
+        # api_client is unauthenticated by default
+        response = api_client.get('/health/')
+        assert response.status_code == 200
+
+
+@pytest.mark.django_db
+@pytest.mark.view
+class TestDatabaseHealthCheckView:
+    """Test suite for database-specific health check endpoint."""
+    
+    def test_database_health_check_healthy(self, api_client):
+        """Test database health check when database is healthy."""
+        response = api_client.get('/health/db/')
+        
+        assert response.status_code == 200
+        data = response.data
+        assert data['status'] == 'healthy'
+        assert 'database' in data
+        assert 'engine' in data['database']
+        assert 'name' in data['database']
+        assert 'host' in data['database']
+        assert 'port' in data['database']
+        assert 'response_time_ms' in data['database']
+        assert 'timestamp' in data
+    
+    def test_database_health_check_unhealthy(self, api_client):
+        """Test database health check when database is unhealthy."""
+        with patch.object(connection, 'cursor') as mock_cursor:
+            mock_cursor.side_effect = Exception("Database connection failed")
+            
+            response = api_client.get('/health/db/')
+            
+            assert response.status_code == 503
+            data = response.data
+            assert data['status'] == 'unhealthy'
+            assert 'database' in data
+            assert 'error' in data['database']
+            assert 'response_time_ms' in data['database']
+    
+    def test_database_health_check_includes_connection_info(self, api_client):
+        """Test that database health check includes connection information."""
+        response = api_client.get('/health/db/')
+        
+        assert response.status_code == 200
+        data = response.data
+        db_info = data['database']
+        assert 'engine' in db_info
+        assert 'name' in db_info
+        assert 'host' in db_info
+        assert 'port' in db_info
+    
+    def test_database_health_check_response_time(self, api_client):
+        """Test that database health check includes response time."""
+        response = api_client.get('/health/db/')
+        
+        assert response.status_code == 200
+        data = response.data
+        assert 'response_time_ms' in data['database']
+        assert isinstance(data['database']['response_time_ms'], (int, float))
+        assert data['database']['response_time_ms'] >= 0
+    
+    def test_database_health_check_no_authentication_required(self, api_client):
+        """Test that database health check doesn't require authentication."""
+        response = api_client.get('/health/db/')
+        assert response.status_code == 200
+
+
+@pytest.mark.django_db
+@pytest.mark.view
+class TestRedisHealthCheckView:
+    """Test suite for Redis-specific health check endpoint."""
+    
+    def test_redis_health_check_healthy(self, api_client):
+        """Test Redis health check when Redis is healthy."""
+        with patch('core.views.redis') as mock_redis:
+            mock_client = MagicMock()
+            mock_client.ping.return_value = True
+            mock_client.info.return_value = {
+                'redis_version': '7.0.0',
+                'connected_clients': 5,
+            }
+            mock_redis.from_url.return_value = mock_client
+            
+            with patch.object(settings, 'CELERY_BROKER_URL', 'redis://localhost:6379/0'):
+                response = api_client.get('/health/redis/')
+                
+                assert response.status_code == 200
+                data = response.data
+                assert data['status'] == 'healthy'
+                assert 'redis' in data
+                assert 'url' in data['redis']
+                assert 'response_time_ms' in data['redis']
+                assert 'timestamp' in data
+    
+    def test_redis_health_check_unhealthy_connection_error(self, api_client):
+        """Test Redis health check when Redis connection fails."""
+        import redis
+        
+        with patch('core.views.redis') as mock_redis:
+            mock_redis.from_url.side_effect = redis.ConnectionError("Connection refused")
+            
+            with patch.object(settings, 'CELERY_BROKER_URL', 'redis://localhost:6379/0'):
+                response = api_client.get('/health/redis/')
+                
+                assert response.status_code == 503
+                data = response.data
+                assert data['status'] == 'unhealthy'
+                assert 'redis' in data
+                assert 'error' in data['redis']
+                assert 'Connection error' in data['redis']['error']
+    
+    def test_redis_health_check_unhealthy_timeout(self, api_client):
+        """Test Redis health check when Redis times out."""
+        import redis
+        
+        with patch('core.views.redis') as mock_redis:
+            mock_client = MagicMock()
+            mock_client.ping.side_effect = redis.TimeoutError("Timeout")
+            mock_redis.from_url.return_value = mock_client
+            
+            with patch.object(settings, 'CELERY_BROKER_URL', 'redis://localhost:6379/0'):
+                response = api_client.get('/health/redis/')
+                
+                assert response.status_code == 503
+                data = response.data
+                assert data['status'] == 'unhealthy'
+                assert 'error' in data['redis']
+                assert 'Timeout' in data['redis']['error']
+    
+    def test_redis_health_check_not_configured(self, api_client):
+        """Test Redis health check when Redis is not configured."""
+        with patch.object(settings, 'CELERY_BROKER_URL', None):
+            response = api_client.get('/health/redis/')
+            
+            assert response.status_code == 503
+            data = response.data
+            assert data['status'] == 'not_configured'
+            assert 'redis' in data
+            assert 'error' in data['redis']
+    
+    def test_redis_health_check_includes_server_info(self, api_client):
+        """Test that Redis health check includes server info when available."""
+        with patch('core.views.redis') as mock_redis:
+            mock_client = MagicMock()
+            mock_client.ping.return_value = True
+            mock_client.info.return_value = {
+                'redis_version': '7.0.0',
+                'connected_clients': 5,
+            }
+            mock_redis.from_url.return_value = mock_client
+            
+            with patch.object(settings, 'CELERY_BROKER_URL', 'redis://localhost:6379/0'):
+                response = api_client.get('/health/redis/')
+                
+                assert response.status_code == 200
+                data = response.data
+                assert 'server_info' in data['redis']
+                assert 'redis_version' in data['redis']['server_info']
+                assert 'connected_clients' in data['redis']['server_info']
+    
+    def test_redis_health_check_response_time(self, api_client):
+        """Test that Redis health check includes response time."""
+        with patch('core.views.redis') as mock_redis:
+            mock_client = MagicMock()
+            mock_client.ping.return_value = True
+            mock_redis.from_url.return_value = mock_client
+            
+            with patch.object(settings, 'CELERY_BROKER_URL', 'redis://localhost:6379/0'):
+                response = api_client.get('/health/redis/')
+                
+                assert response.status_code == 200
+                data = response.data
+                assert 'response_time_ms' in data['redis']
+                assert isinstance(data['redis']['response_time_ms'], (int, float))
+                assert data['redis']['response_time_ms'] >= 0
+    
+    def test_redis_health_check_no_authentication_required(self, api_client):
+        """Test that Redis health check doesn't require authentication."""
+        with patch('core.views.redis') as mock_redis:
+            mock_client = MagicMock()
+            mock_client.ping.return_value = True
+            mock_redis.from_url.return_value = mock_client
+            
+            with patch.object(settings, 'CELERY_BROKER_URL', 'redis://localhost:6379/0'):
+                response = api_client.get('/health/redis/')
+                assert response.status_code == 200
+
+
+# Backward compatibility tests for function-based view
+@pytest.mark.django_db
+@pytest.mark.view
+class TestHealthCheckFunctionView:
+    """Test suite for backward-compatible function-based health check."""
+    
+    def test_health_check_function_all_healthy(self):
+        """Test function-based health check when all services are healthy."""
         factory = RequestFactory()
         request = factory.get('/health/')
         
@@ -40,99 +343,7 @@ class TestHealthCheckView:
         assert response.status_code == 200
         data = response.json()
         assert data['status'] == 'healthy'
-        assert 'database' in data['services']
-        assert data['services']['database'] == 'healthy'
-    
-    def test_health_check_database_unhealthy(self):
-        """Test health check when database is unhealthy."""
-        factory = RequestFactory()
-        request = factory.get('/health/')
-        
-        with patch.object(connection, 'cursor') as mock_cursor:
-            mock_cursor.side_effect = Exception("Database connection failed")
-            
-            response = health_check(request)
-            
-            assert response.status_code == 503
-            data = response.json()
-            assert data['status'] == 'unhealthy'
-            assert 'database' in data['services']
-            assert 'unhealthy' in data['services']['database']
-    
-    def test_health_check_redis_healthy(self):
-        """Test health check when Redis is healthy."""
-        factory = RequestFactory()
-        request = factory.get('/health/')
-        
-        with patch('core.views.redis') as mock_redis:
-            mock_client = MagicMock()
-            mock_client.ping.return_value = True
-            mock_redis.from_url.return_value = mock_client
-            
-            # Set CELERY_BROKER_URL in settings
-            original_broker = getattr(settings, 'CELERY_BROKER_URL', None)
-            with patch.object(settings, 'CELERY_BROKER_URL', 'redis://localhost:6379/0'):
-                response = health_check(request)
-                
-                assert response.status_code == 200
-                data = response.json()
-                assert 'redis' in data['services']
-                assert data['services']['redis'] == 'healthy'
-    
-    def test_health_check_redis_unhealthy(self):
-        """Test health check when Redis is unhealthy."""
-        factory = RequestFactory()
-        request = factory.get('/health/')
-        
-        with patch('core.views.redis') as mock_redis:
-            mock_client = MagicMock()
-            mock_client.ping.side_effect = Exception("Redis connection failed")
-            mock_redis.from_url.return_value = mock_client
-            
-            # Set CELERY_BROKER_URL in settings
-            original_broker = getattr(settings, 'CELERY_BROKER_URL', None)
-            with patch.object(settings, 'CELERY_BROKER_URL', 'redis://localhost:6379/0'):
-                with patch.object(settings, 'DEBUG', False):  # In production, Redis failure makes it unhealthy
-                    response = health_check(request)
-                    
-                    assert response.status_code == 503
-                    data = response.json()
-                    assert data['status'] == 'unhealthy'
-                    assert 'redis' in data['services']
-                    assert 'unhealthy' in data['services']['redis']
-    
-    def test_health_check_redis_not_configured(self):
-        """Test health check when Redis is not configured."""
-        factory = RequestFactory()
-        request = factory.get('/health/')
-        
-        with patch.object(settings, 'CELERY_BROKER_URL', None):
-            response = health_check(request)
-            
-            assert response.status_code == 200
-            data = response.json()
-            assert 'redis' in data['services']
-            assert data['services']['redis'] == 'not configured'
-    
-    def test_health_check_redis_unhealthy_in_debug_mode(self):
-        """Test health check when Redis is unhealthy but DEBUG=True (should not fail)."""
-        factory = RequestFactory()
-        request = factory.get('/health/')
-        
-        with patch('core.views.redis') as mock_redis:
-            mock_client = MagicMock()
-            mock_client.ping.side_effect = Exception("Redis connection failed")
-            mock_redis.from_url.return_value = mock_client
-            
-            with patch.object(settings, 'CELERY_BROKER_URL', 'redis://localhost:6379/0'):
-                with patch.object(settings, 'DEBUG', True):  # In debug mode, Redis failure doesn't fail health check
-                    response = health_check(request)
-                    
-                    # Should still return 200 in debug mode even if Redis fails
-                    assert response.status_code == 200
-                    data = response.json()
-                    assert 'redis' in data['services']
-                    assert 'unhealthy' in data['services']['redis']
+        assert 'services' in data
 
 
 # ============================================================================
