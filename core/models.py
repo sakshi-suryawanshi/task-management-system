@@ -175,6 +175,9 @@ class ActivityLog(models.Model):
                 metadata={'title': task.title, 'project': task.project.name}
             )
         """
+        # Convert None to empty string for CharField (user_agent)
+        user_agent = user_agent or ''
+        
         if obj is None:
             # If no object provided, create log without content_type/object_id
             log = cls.objects.create(

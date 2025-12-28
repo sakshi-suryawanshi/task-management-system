@@ -104,6 +104,17 @@ DATABASES = {
     }
 }
 
+# Test database configuration
+# Use SQLite for faster test execution (in-memory database)
+# This is detected automatically by pytest-django, but we can also set it explicitly
+# Pytest-django will override this with its own test database settings if needed
+import sys
+if 'test' in sys.argv or 'pytest' in sys.modules or os.environ.get('PYTEST_CURRENT_TEST'):
+    DATABASES['default'] = {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': ':memory:',
+    }
+
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
 AUTH_PASSWORD_VALIDATORS = [
@@ -128,13 +139,54 @@ TIME_ZONE = 'UTC'
 USE_I18N = True
 USE_TZ = True
 
-# Static files (CSS, JavaScript, Images)
+# ============================================================================
+# Static Files Configuration
+# ============================================================================
+# Production-ready static files configuration for serving CSS, JavaScript, images, etc.
+# Static files are collected via 'python manage.py collectstatic' and served by Nginx.
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
+
+# URL prefix for static files (used in templates and URLs)
+# This is the URL path that will be used to access static files
 STATIC_URL = '/static/'
+
+# Absolute path to the directory where collectstatic will collect all static files
+# This directory is served by Nginx in production
+# In Docker: /app/staticfiles (mounted to static_volume)
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
-# Media files
+# Additional directories from which to collect static files (project-level static files)
+# Django automatically finds static files in app/static/ directories
+# Use this if you have project-level static files in a separate directory
+# Example: STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
+STATICFILES_DIRS = []
+
+# The storage engine to use when collecting static files
+# Default uses FileSystemStorage which copies files to STATIC_ROOT
+# Can be customized for cloud storage (S3, Azure, etc.) in production
+# STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
+
+# List of finder classes that Django uses to locate static files
+# Default finders include:
+# - AppDirectoriesFinder: Finds static files in each app's static/ subdirectory
+# - FileSystemFinder: Finds static files in directories listed in STATICFILES_DIRS
+STATICFILES_FINDERS = [
+    'django.contrib.staticfiles.finders.FileSystemFinder',  # Finds files in STATICFILES_DIRS
+    'django.contrib.staticfiles.finders.AppDirectoriesFinder',  # Finds files in app/static/ directories
+]
+
+# ============================================================================
+# Media Files Configuration
+# ============================================================================
+# Configuration for user-uploaded files (user content, attachments, etc.)
+# Media files are served directly by Nginx (not through Django)
+
+# URL prefix for media files (used in models and URLs)
+# This is the URL path that will be used to access media files
 MEDIA_URL = '/media/'
+
+# Absolute path to the directory where user-uploaded files are stored
+# In Docker: /app/media (mounted to media_volume)
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # Default primary key field type

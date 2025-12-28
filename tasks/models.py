@@ -161,9 +161,11 @@ class Task(models.Model):
         Returns:
             QuerySet: All Task instances that this task depends on
         """
-        return Task.objects.filter(
-            taskdependencies__dependent_task=self
-        ).distinct()
+        # Get TaskDependency objects where this task is the dependent_task
+        # prerequisite_tasks is the related_name for dependent_task FK
+        # Then get the prerequisite_task from those TaskDependency objects
+        dependency_ids = self.prerequisite_tasks.values_list('prerequisite_task_id', flat=True)
+        return Task.objects.filter(id__in=dependency_ids)
     
     def get_dependents(self):
         """
@@ -172,9 +174,11 @@ class Task(models.Model):
         Returns:
             QuerySet: All Task instances that depend on this task
         """
-        return Task.objects.filter(
-            taskdependencies__prerequisite_task=self
-        ).distinct()
+        # Get TaskDependency objects where this task is the prerequisite_task
+        # dependent_tasks is the related_name for prerequisite_task FK  
+        # Then get the dependent_task from those TaskDependency objects
+        dependent_ids = self.dependent_tasks.values_list('dependent_task_id', flat=True)
+        return Task.objects.filter(id__in=dependent_ids)
     
     def get_comments(self):
         """

@@ -1,0 +1,190 @@
+# ============================================================================
+# Coverage Configuration for Task Management System
+# ============================================================================
+# This file configures coverage.py for code coverage measurement.
+# Coverage helps identify untested code and ensures comprehensive test coverage.
+#
+# Usage:
+#   coverage run -m pytest
+#   coverage report
+#   coverage html
+#
+# Documentation: https://coverage.readthedocs.io/
+# ============================================================================
+
+[run]
+# Source code directories to measure coverage for
+source = .
+
+# Directories and files to omit from coverage
+omit =
+    # Python standard library
+    */site-packages/*
+    */dist-packages/*
+    
+    # Virtual environments
+    */venv/*
+    */env/*
+    */ENV/*
+    */.venv/*
+    
+    # Django migrations (auto-generated, not typically tested)
+    */migrations/*
+    */migrations/__pycache__/*
+    
+    # Test files themselves (we test the code, not the tests)
+    */tests.py
+    */test_*.py
+    */tests/*
+    */__pycache__/*
+    */conftest.py
+    
+    # Django management and configuration files
+    manage.py
+    */settings/*
+    */wsgi.py
+    */asgi.py
+    */celery.py
+    
+    # Admin files (Django admin is typically not unit tested)
+    */admin.py
+    
+    # Factory files (test data generation, not application code)
+    factories.py
+    
+    # Documentation and scripts
+    */docs/*
+    *.md
+    *.txt
+    *.sh
+    
+    # Docker and deployment files
+    Dockerfile
+    docker-compose.yml
+    *.conf
+    
+    # IDE and editor files
+    .vscode/*
+    .idea/*
+    *.swp
+    *.swo
+    *~
+    
+    # Coverage and build artifacts
+    htmlcov/*
+    .coverage
+    coverage.xml
+    *.pyc
+    *.pyo
+    
+    # Static and media files
+    staticfiles/*
+    media/*
+    
+    # Logs
+    logs/*
+
+# Branch coverage: measure which branches are taken
+branch = True
+
+# Parallel execution: enable for parallel test runs
+parallel = True
+
+# Data file location
+data_file = .coverage
+
+[report]
+# Precision for percentage reporting
+precision = 2
+
+# Show missing line numbers in the report
+show_missing = True
+
+# Skip files with 100% coverage (set to False to show all files)
+skip_covered = False
+
+# Skip empty files
+skip_empty = True
+
+# Exclude lines from coverage that match these patterns
+exclude_lines =
+    # Have to re-enable the standard pragma
+    pragma: no cover
+    
+    # Don't complain about missing debug-only code
+    def __repr__
+    if self.debug
+    if settings.DEBUG
+    if TYPE_CHECKING
+    if __name__ == .__main__.:
+    
+    # Don't complain if tests don't hit defensive assertion code
+    raise AssertionError
+    raise NotImplementedError
+    if 0:
+    if False:
+    if .*:
+        raise
+    except.*:
+        pass
+    except.*:
+        ...
+    
+    # Don't count abstract methods
+    @abstractmethod
+    @abc.abstractmethod
+    
+    # Don't count property setters/getters that are just pass-through
+    @property
+    def .*\(self\):
+        \.\.\.
+    
+    # Don't count Django's default __str__ methods
+    def __str__\(self\):
+        return .*
+    
+    # Don't count signal receivers that are just pass-through
+    @receiver\(
+    
+    # Don't count empty except blocks
+    except.*:
+        pass
+
+# Only show files that match these patterns (empty = show all)
+include = 
+
+# Exclude files that match these patterns
+exclude = 
+    */migrations/*
+    */tests/*
+    */test_*.py
+    */__pycache__/*
+    */venv/*
+    */env/*
+    */site-packages/*
+    */dist-packages/*
+
+[html]
+# Directory where HTML report will be written
+directory = htmlcov
+
+# Title for HTML report
+title = Task Management System - Code Coverage Report
+
+[xml]
+# Output file for XML report
+output = coverage.xml
+
+# ============================================================================
+# Coverage Thresholds
+# ============================================================================
+# Target: 80%+ overall coverage
+# 
+# Coverage goals by component:
+# - Models: 90%+ (critical business logic)
+# - Views/API: 85%+ (user-facing functionality)
+# - Serializers: 80%+ (data validation)
+# - Tasks (Celery): 80%+ (background jobs)
+# - Utilities: 70%+ (helper functions)
+# ============================================================================
+

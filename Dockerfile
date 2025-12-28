@@ -35,7 +35,13 @@ RUN pip install --upgrade pip setuptools wheel && \
 COPY . /app/
 
 # Create directories for static files and media
-# Note: collectstatic will be run in docker-compose command, not during build
+# These directories will be used by collectstatic and for storing user uploads
+# Note: These directories will be overridden by Docker volumes in docker-compose.yml
+#       The volume mounts ensure data persistence and sharing between containers
+#       - static_volume:/app/staticfiles (shared between web and nginx containers)
+#       - media_volume:/app/media (shared between web, nginx, and celery containers)
+# Note: collectstatic is run at container startup (in docker-compose.yml command),
+#       not during build, to ensure database is available and all migrations are applied
 RUN mkdir -p /app/staticfiles /app/media
 
 # Change ownership to appuser
