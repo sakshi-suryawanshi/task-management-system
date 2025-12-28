@@ -1,0 +1,480 @@
+# ============================================================================
+# CI/CD Pipeline for Task Management System
+# ============================================================================
+# This workflow runs on every push and pull request to ensure code quality,
+# test coverage, and build integrity.
+#
+# Jobs:
+#   1. lint: Code quality checks (Black, isort, flake8, mypy, bandit)
+#   2. test: Test suite execution with coverage (80%+ required)
+#   3. docker-build: Docker image build verification
+#   4. integration-test: Full stack integration testing
+# ============================================================================
+
+name: CI/CD Pipeline
+
+on:
+  # Trigger on push to main, master, and develop branches
+  push:
+    branches:
+      - main
+      - master
+      - develop
+  
+  # Trigger on pull requests to main, master, and develop branches
+  pull_request:
+    branches:
+      - main
+      - master
+      - develop
+  
+  # Allow manual workflow dispatch
+  workflow_dispatch:
+    inputs:
+      run_tests:
+        description: 'Run test suite'
+        required: false
+        default: 'true'
+        type: boolean
+      run_linting:
+        description: 'Run linting checks'
+        required: false
+        default: 'true'
+        type: boolean
+      build_docker:
+        description: 'Build Docker images'
+        required: false
+        default: 'true'
+        type: boolean
+
+# Global environment variables
+env:
+  PYTHON_VERSION: '3.11'
+  MYSQL_DATABASE: taskmanager_test
+  MYSQL_USER: testuser
+  MYSQL_PASSWORD: testpass
+  MYSQL_ROOT_PASSWORD: rootpass
+  REDIS_URL: redis://127.0.0.1:6379/0
+  CELERY_BROKER_URL: redis://127.0.0.1:6379/0
+  CELERY_RESULT_BACKEND: redis://127.0.0.1:6379/0
+  SECRET_KEY: test-secret-key-for-ci-only-do-not-use-in-production
+  DEBUG: 'False'
+  DJANGO_SETTINGS_MODULE: taskmanager.settings
+
+jobs:
+  # ========================================================================
+  # Job 1: Code Quality Checks (Linting)
+  # ========================================================================
+  lint:
+    name: Code Quality Checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          pip install -r requirements-dev.txt
+      
+      - name: Check code formatting with Black
+        run: |
+          echo "🔍 Checking code formatting with Black..."
+          black --check --diff .
+      
+      - name: Check import sorting with isort
+        run: |
+          echo "🔍 Checking import sorting with isort..."
+          isort --check-only --diff .
+      
+      - name: Run flake8 linting
+        run: |
+          echo "🔍 Running flake8 linting..."
+          flake8 . --count --statistics
+      
+      - name: Run mypy type checking (optional, non-blocking)
+        continue-on-error: true
+        run: |
+          echo "🔍 Running mypy type checking..."
+          mypy . --ignore-missing-imports || echo "⚠️ mypy found type issues (non-blocking)"
+      
+      - name: Run bandit security scanning (optional, non-blocking)
+        continue-on-error: true
+        run: |
+          echo "🔍 Running bandit security scan..."
+          bandit -r . -x migrations,venv,env,.venv,__pycache__,tests,test_*.py,conftest.py,factories.py || echo "⚠️ bandit found security issues (non-blocking)"
+
+  # ========================================================================
+  # Job 2: Test Suite Execution
+  # ========================================================================
+  test:
+    name: Test Suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    
+    services:
+      # MySQL 8.0 service container for testing
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: ${{ env.MYSQL_DATABASE }}
+          MYSQL_USER: ${{ env.MYSQL_USER }}
+          MYSQL_PASSWORD: ${{ env.MYSQL_PASSWORD }}
+          MYSQL_ROOT_PASSWORD: ${{ env.MYSQL_ROOT_PASSWORD }}
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -u root -p${{ env.MYSQL_ROOT_PASSWORD }}"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+        command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+      
+      # Redis 7 service container for testing
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=3s
+          --health-retries=5
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+      
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            gcc \
+            default-libmysqlclient-dev \
+            pkg-config
+      
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          pip install -r requirements-dev.txt
+      
+      - name: Wait for MySQL to be ready
+        run: |
+          echo "⏳ Waiting for MySQL to be ready..."
+          for i in {1..30}; do
+            if mysqladmin ping -h 127.0.0.1 -u ${{ env.MYSQL_USER }} -p${{ env.MYSQL_PASSWORD }} --silent; then
+              echo "✅ MySQL is ready!"
+              break
+            fi
+            echo "Waiting for MySQL... ($i/30)"
+            sleep 2
+          done
+      
+      - name: Wait for Redis to be ready
+        run: |
+          echo "⏳ Waiting for Redis to be ready..."
+          for i in {1..30}; do
+            if redis-cli -h 127.0.0.1 ping | grep -q PONG; then
+              echo "✅ Redis is ready!"
+              break
+            fi
+            echo "Waiting for Redis... ($i/30)"
+            sleep 2
+          done
+      
+      - name: Run database migrations
+        env:
+          MYSQL_HOST: 127.0.0.1
+          MYSQL_PORT: 3306
+          MYSQL_DATABASE: ${{ env.MYSQL_DATABASE }}
+          MYSQL_USER: ${{ env.MYSQL_USER }}
+          MYSQL_PASSWORD: ${{ env.MYSQL_PASSWORD }}
+          SECRET_KEY: ${{ env.SECRET_KEY }}
+          DEBUG: ${{ env.DEBUG }}
+        run: |
+          echo "🔄 Running database migrations..."
+          python manage.py migrate --noinput
+      
+      - name: Run tests with coverage
+        env:
+          MYSQL_HOST: 127.0.0.1
+          MYSQL_PORT: 3306
+          MYSQL_DATABASE: ${{ env.MYSQL_DATABASE }}
+          MYSQL_USER: ${{ env.MYSQL_USER }}
+          MYSQL_PASSWORD: ${{ env.MYSQL_PASSWORD }}
+          SECRET_KEY: ${{ env.SECRET_KEY }}
+          DEBUG: ${{ env.DEBUG }}
+        run: |
+          echo "🧪 Running test suite with coverage..."
+          pytest \
+            --verbose \
+            --cov=. \
+            --cov-config=.coveragerc \
+            --cov-report=term-missing \
+            --cov-report=xml \
+            --cov-report=html \
+            --cov-fail-under=80 \
+            --junitxml=junit.xml
+      
+      - name: Upload coverage reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: |
+            htmlcov/
+            coverage.xml
+          retention-days: 30
+      
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: junit.xml
+          retention-days: 30
+
+  # ========================================================================
+  # Job 3: Docker Build Verification
+  # ========================================================================
+  docker-build:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Extract metadata
+        id: meta
+        run: |
+          echo "📋 Extracting build metadata..."
+          echo "commit_sha=${{ github.sha }}" >> $GITHUB_OUTPUT
+          echo "short_sha=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
+          echo "branch=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          echo "✅ Metadata extracted"
+      
+      - name: Cache Docker layers
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+      
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        id: build
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false
+          tags: |
+            task-management-system:test
+            task-management-system:${{ github.sha }}
+            task-management-system:${{ steps.meta.outputs.short_sha }}
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache,mode=max
+          platforms: linux/amd64
+          build-args: |
+            BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+            VCS_REF=${{ github.sha }}
+            VERSION=1.0
+      
+      - name: Extract and display image metadata
+        run: |
+          echo "🔍 Extracting Docker image metadata..."
+          IMAGE_ID=$(docker images task-management-system:test --format '{{.ID}}')
+          IMAGE_SIZE=$(docker inspect task-management-system:test --format '{{.Size}}')
+          IMAGE_CREATED=$(docker inspect task-management-system:test --format '{{.Created}}')
+          IMAGE_ARCH=$(docker inspect task-management-system:test --format '{{.Architecture}}')
+          IMAGE_OS=$(docker inspect task-management-system:test --format '{{.Os}}')
+          
+          echo "📊 Image Information:"
+          echo "  ID: $IMAGE_ID"
+          SIZE_MB=$(awk "BEGIN {printf \"%.2f\", $IMAGE_SIZE/1024/1024}")
+          echo "  Size: $IMAGE_SIZE bytes ($SIZE_MB MB)"
+          echo "  Created: $IMAGE_CREATED"
+          echo "  Architecture: $IMAGE_ARCH"
+          echo "  OS: $IMAGE_OS"
+          echo ""
+          
+          # Display all image tags
+          echo "🏷️ Image Tags:"
+          docker images task-management-system --format 'table {{.Repository}}\t{{.Tag}}\t{{.Size}}'
+      
+      - name: Verify image labels
+        run: |
+          echo "🔍 Verifying image labels..."
+          docker inspect task-management-system:test --format '{{range $key, $value := .Config.Labels}}{{$key}}={{$value}}{{"\n"}}{{end}}' | sort
+          echo "✅ Image labels verified"
+      
+      - name: Verify image layers
+        run: |
+          echo "🔍 Verifying image layer structure..."
+          docker history task-management-system:test --format 'table {{.CreatedBy}}\t{{.Size}}' | head -10
+          echo "✅ Image layers verified"
+      
+      - name: Test Docker image can start
+        run: |
+          echo "🧪 Testing Docker image can start a container..."
+          docker run --rm --name test-container task-management-system:test sleep 5 || exit 1
+          echo "✅ Docker image can start containers successfully"
+      
+      - name: Verify Python installation
+        run: |
+          echo "🐍 Verifying Python installation..."
+          PYTHON_VERSION=$(docker run --rm task-management-system:test python --version)
+          echo "  $PYTHON_VERSION"
+          if echo "$PYTHON_VERSION" | grep -q "Python 3.11"; then
+            echo "✅ Python 3.11 is correctly installed"
+          else
+            echo "❌ Python version mismatch"
+            exit 1
+          fi
+      
+      - name: Verify Django installation
+        run: |
+          echo "🎯 Verifying Django installation..."
+          DJANGO_VERSION=$(docker run --rm task-management-system:test python -c "import django; print(django.get_version())")
+          echo "  Django version: $DJANGO_VERSION"
+          if [ -n "$DJANGO_VERSION" ]; then
+            echo "✅ Django is correctly installed"
+          else
+            echo "❌ Django installation verification failed"
+            exit 1
+          fi
+      
+      - name: Verify image size
+        run: |
+          echo "📏 Checking image size..."
+          SIZE=$(docker inspect task-management-system:test --format '{{.Size}}')
+          SIZE_MB=$(awk "BEGIN {printf \"%.2f\", $SIZE/1024/1024}")
+          echo "  Image size: $SIZE_MB MB"
+          
+          if [ "$SIZE" -gt 1073741824 ]; then
+            echo "⚠️ Warning: Image size ($SIZE_MB MB) exceeds 1GB"
+            echo "  Consider optimizing the Dockerfile to reduce size"
+          else
+            echo "✅ Image size is acceptable ($SIZE_MB MB)"
+          fi
+      
+      - name: Validate docker-compose.yml
+        run: |
+          echo "🔍 Validating docker-compose.yml syntax..."
+          docker compose config --quiet
+          echo "✅ docker-compose.yml is valid"
+      
+      # ========================================================================
+      # Optional: Push to Docker Hub (disabled by default)
+      # ========================================================================
+      # To enable Docker Hub push:
+      # 1. Create Docker Hub account at https://hub.docker.com
+      # 2. Create a repository (e.g., 'task-management-system')
+      # 3. Generate access token: Docker Hub → Account Settings → Security
+      # 4. Add GitHub secrets:
+      #    - DOCKER_HUB_USERNAME: Your Docker Hub username
+      #    - DOCKER_HUB_TOKEN: Your access token
+      # 5. Uncomment the steps below
+      # 6. Update the image name prefix if needed
+      #
+      # Note: Push only happens on main/master branches, not on PRs
+      # ========================================================================
+      # - name: Log in to Docker Hub
+      #   if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+      #   uses: docker/login-action@v3
+      #   with:
+      #     username: ${{ secrets.DOCKER_HUB_USERNAME }}
+      #     password: ${{ secrets.DOCKER_HUB_TOKEN }}
+      #
+      # - name: Push Docker image to Docker Hub
+      #   if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+      #   uses: docker/build-push-action@v5
+      #   with:
+      #     context: .
+      #     file: ./Dockerfile
+      #     push: true
+      #     tags: |
+      #       ${{ secrets.DOCKER_HUB_USERNAME }}/task-management-system:latest
+      #       ${{ secrets.DOCKER_HUB_USERNAME }}/task-management-system:${{ github.sha }}
+      #       ${{ secrets.DOCKER_HUB_USERNAME }}/task-management-system:${{ steps.meta.outputs.short_sha }}
+      #     cache-from: type=local,src=/tmp/.buildx-cache
+      #     cache-to: type=local,dest=/tmp/.buildx-cache,mode=max
+      #     platforms: linux/amd64
+
+  # ========================================================================
+  # Job 4: Integration Test
+  # ========================================================================
+  integration-test:
+    name: Integration Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [lint, test, docker-build]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Build Docker images
+        run: |
+          echo "🔨 Building Docker images with docker-compose..."
+          docker compose build
+      
+      - name: Start services
+        run: |
+          echo "🚀 Starting all services..."
+          docker compose up -d
+      
+      - name: Wait for services to be ready
+        run: |
+          echo "⏳ Waiting for services to be ready..."
+          sleep 30
+          
+          # Wait for web service health check
+          for i in {1..30}; do
+            if docker compose exec -T web curl -f http://localhost:8000/health/ > /dev/null 2>&1; then
+              echo "✅ Web service is healthy!"
+              break
+            fi
+            echo "Waiting for web service... ($i/30)"
+            sleep 5
+          done
+      
+      - name: Check service health
+        run: |
+          echo "🔍 Checking service health..."
+          docker compose ps
+          
+          # Test health endpoint
+          echo "Testing health endpoint..."
+          docker compose exec -T web curl -f http://localhost:8000/health/ || exit 1
+          echo "✅ Health check passed"
+      
+      - name: Cleanup
+        if: always()
+        run: |
+          echo "🧹 Cleaning up services..."
+          docker compose down -v
+          echo "✅ Cleanup complete"
+

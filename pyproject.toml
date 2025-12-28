@@ -1,0 +1,370 @@
+# ============================================================================
+# Project Configuration for Task Management System
+# ============================================================================
+# This file contains configuration for various Python development tools:
+# - Black: Code formatter
+# - isort: Import sorter
+# - mypy: Type checker
+# - Coverage: Code coverage (alternative to .coveragerc)
+# - Pytest: Test configuration (alternative to pytest.ini)
+#
+# Documentation:
+# - Black: https://black.readthedocs.io/
+# - isort: https://pycqa.github.io/isort/
+# - mypy: https://mypy.readthedocs.io/
+# ============================================================================
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "task-management-system"
+version = "1.0.0"
+description = "Production-ready Task Management System with Django REST Framework"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+
+# ============================================================================
+# Black Configuration (Code Formatter)
+# ============================================================================
+[tool.black]
+# Line length: 100 characters (matches flake8 configuration)
+line-length = 100
+
+# Target Python version
+target-version = ['py311']
+
+# Include patterns (files to format)
+include = '\.pyi?$'
+
+# Exclude patterns (files to skip)
+extend-exclude = '''
+/(
+    # Directories
+    \.git
+    | \.venv
+    | \.eggs
+    | \.mypy_cache
+    | \.pytest_cache
+    | \.ruff_cache
+    | venv
+    | env
+    | ENV
+    | build
+    | dist
+    | __pycache__
+    | migrations
+    | staticfiles
+    | media
+    | htmlcov
+    | logs
+    | \.coverage
+    | coverage\.xml
+    | \.DS_Store
+)/
+'''
+
+# Experimental string processing (disabled for stability)
+experimental-string-processing = false
+
+# Fast mode (skip string normalization)
+fast = false
+
+# Skip string normalization
+skip-string-normalization = false
+
+# Skip magic trailing comma
+skip-magic-trailing-comma = false
+
+# Use preview style (newer formatting features)
+preview = false
+
+# ============================================================================
+# isort Configuration (Import Sorter)
+# ============================================================================
+[tool.isort]
+# Profile: black (compatible with Black formatter)
+profile = "black"
+
+# Line length: 100 characters (matches Black)
+line_length = 100
+
+# Multi-line output mode (Black-compatible)
+multi_line_output = 3  # Vertical Hanging Indent
+
+# Include trailing comma in multi-line imports
+include_trailing_comma = true
+
+# Force grid wrap for imports
+force_grid_wrap = 0
+
+# Use parentheses for multi-line imports
+use_parentheses = true
+
+# Ensure newline before imports
+ensure_newline_before_comments = true
+
+# Known sections for import grouping
+sections = ["FUTURE", "STDLIB", "DJANGO", "THIRDPARTY", "FIRSTPARTY", "LOCALFOLDER"]
+
+# Known Django modules (grouped under DJANGO section)
+known_django = [
+    "django",
+    "django.contrib",
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
+    "django.core",
+    "django.db",
+    "django.http",
+    "django.urls",
+    "django.utils",
+    "django.conf",
+    "django.test",
+    "django.template",
+    "django.forms",
+    "rest_framework",
+    "rest_framework_simplejwt",
+    "celery",
+    "django_celery_beat",
+]
+
+# Known first-party modules (grouped under FIRSTPARTY section)
+known_first_party = [
+    "users",
+    "teams",
+    "projects",
+    "tasks",
+    "notifications",
+    "core",
+    "taskmanager",
+]
+
+# Skip files/directories
+skip = [
+    ".git",
+    ".venv",
+    "venv",
+    "env",
+    "ENV",
+    "__pycache__",
+    ".mypy_cache",
+    ".pytest_cache",
+    "migrations",
+    "staticfiles",
+    "media",
+    "htmlcov",
+    "logs",
+    "build",
+    "dist",
+    "*.egg-info",
+]
+
+# Skip glob patterns
+skip_glob = [
+    "*.pyc",
+    "*.pyo",
+    ".coverage",
+    "coverage.xml",
+]
+
+# ============================================================================
+# mypy Configuration (Type Checker)
+# ============================================================================
+[tool.mypy]
+# Python version
+python_version = "3.11"
+
+# Follow imports (normal, silent, skip)
+follow_imports = "normal"
+
+# Strict optional: treat None as separate type
+strict_optional = true
+
+# No implicit optional: require Optional for None defaults
+no_implicit_optional = true
+
+# Show error codes in messages
+show_error_codes = true
+
+# Show column numbers
+show_column_numbers = true
+
+# Platform (linux for Docker compatibility)
+platform = "linux"
+
+# Warn about unused ignores
+warn_unused_ignores = true
+
+# Warn about redundant casts
+warn_redundant_casts = true
+
+# Warn about unused configs
+warn_unused_configs = true
+
+# Disallow untyped calls
+disallow_untyped_calls = false
+
+# Disallow untyped definitions
+disallow_untyped_defs = false
+
+# Disallow incomplete defs
+disallow_incomplete_defs = false
+
+# Check untyped defs
+check_untyped_defs = true
+
+# Disallow untyped decorators
+disallow_untyped_decorators = false
+
+# No implicit reexport
+no_implicit_reexport = true
+
+# Ignore missing imports (for Django dynamic attributes)
+ignore_missing_imports = false
+
+# Warn about return Any
+warn_return_any = true
+
+# Warn about unused coroutines
+warn_unused_coroutines = true
+
+# Warn about no return
+warn_no_return = true
+
+# Exclude patterns
+exclude = [
+    "/(\\.git|migrations|venv|env|\\.venv|__pycache__|\\.mypy_cache|\\.pytest_cache|build|dist|staticfiles|media|htmlcov|logs)/",
+    "manage\\.py",
+    "conftest\\.py",
+    "factories\\.py",
+    "test_.*\\.py",
+    ".*_test\\.py",
+]
+
+# Per-module options
+[[tool.mypy.overrides]]
+# Django modules: ignore missing imports (Django has dynamic attributes)
+module = [
+    "django.*",
+    "rest_framework.*",
+    "celery.*",
+    "django_celery_beat.*",
+]
+ignore_missing_imports = true
+
+# ============================================================================
+# Coverage Configuration (Alternative to .coveragerc)
+# ============================================================================
+[tool.coverage.run]
+# Source directories
+source = ["."]
+
+# Omit patterns
+omit = [
+    "*/migrations/*",
+    "*/venv/*",
+    "*/env/*",
+    "*/__pycache__/*",
+    "*/tests/*",
+    "*/test_*.py",
+    "manage.py",
+    "*/settings/*",
+    "*/wsgi.py",
+    "*/asgi.py",
+    "*/celery.py",
+    "*/admin.py",
+    "factories.py",
+    "conftest.py",
+]
+
+# Branch coverage
+branch = true
+
+# Parallel execution
+parallel = true
+
+[tool.coverage.report]
+# Precision
+precision = 2
+
+# Show missing
+show_missing = true
+
+# Skip covered
+skip_covered = false
+
+# Exclude lines
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "@abstractmethod",
+]
+
+# ============================================================================
+# Pytest Configuration (Alternative to pytest.ini)
+# ============================================================================
+[tool.pytest.ini_options]
+# Django settings module
+DJANGO_SETTINGS_MODULE = "taskmanager.settings"
+
+# Test discovery
+python_files = ["test_*.py", "*_test.py", "tests.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+
+# Test paths
+testpaths = ["users", "teams", "projects", "tasks", "notifications", "core"]
+
+# Python path
+pythonpath = ["."]
+
+# Command-line options
+addopts = [
+    "--verbose",
+    "--strict-markers",
+    "--tb=short",
+    "--durations=10",
+    "--disable-warnings",
+    "--color=yes",
+    "--cov=.",
+    "--cov-config=.coveragerc",
+    "--cov-report=term-missing",
+    "--cov-report=html",
+    "--cov-report=xml",
+    "--cov-fail-under=80",
+    "--reuse-db",
+    "--nomigrations",
+]
+
+# Markers
+markers = [
+    "unit: Unit tests (fast, isolated tests)",
+    "integration: Integration tests (test multiple components together)",
+    "api: API endpoint tests",
+    "model: Model tests",
+    "view: View/ViewSet tests",
+    "serializer: Serializer tests",
+    "permission: Permission tests",
+    "celery: Celery task tests",
+    "slow: Slow running tests",
+    "requires_db: Tests that require database access",
+    "requires_redis: Tests that require Redis",
+    "requires_celery: Tests that require Celery worker",
+]
+
+# Logging
+log_cli = true
+log_cli_level = "INFO"
+log_cli_format = "%(asctime)s [%(levelname)8s] %(name)s: %(message)s"
+log_cli_date_format = "%Y-%m-%d %H:%M:%S"
+

@@ -202,7 +202,8 @@ def when_ready(server):
     """
     Called just after the server is started.
     """
-    server.log.info(f"Gunicorn server is ready. Listening on: {bind}")
+    bind_address = os.environ.get('GUNICORN_BIND', '0.0.0.0:8000')
+    server.log.info(f"Gunicorn server is ready. Listening on: {bind_address}")
     server.log.info(f"Server process ID: {os.getpid()}")
     server.log.info(f"Workers: {workers}")
 

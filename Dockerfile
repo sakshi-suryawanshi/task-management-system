@@ -47,11 +47,29 @@ RUN mkdir -p /app/staticfiles /app/media
 # Change ownership to appuser
 RUN chown -R appuser:appuser /app
 
+# Add metadata labels for image management
+LABEL maintainer="Task Management System" \
+      version="1.0" \
+      description="Task Management System - Django REST API with Celery" \
+      org.opencontainers.image.title="Task Management System" \
+      org.opencontainers.image.description="Production-ready Django REST API for task management with Celery background tasks" \
+      org.opencontainers.image.vendor="Task Management System" \
+      org.opencontainers.image.version="1.0" \
+      org.opencontainers.image.authors="Task Management System Team"
+
 # Switch to non-root user
 USER appuser
 
 # Expose port
 EXPOSE 8000
+
+# Health check configuration
+# Checks the /health/ endpoint every 30 seconds
+# Allows 10 seconds for the check to complete
+# Waits 40 seconds before starting health checks (startup time)
+# Retries 3 times before marking as unhealthy
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:8000/health/ || exit 1
 
 # Default command (can be overridden in docker-compose.yml)
 # Uses gunicorn_config.py for comprehensive configuration

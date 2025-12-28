@@ -1,0 +1,259 @@
+# ============================================================================
+# Pre-commit Hooks Configuration for Task Management System
+# ============================================================================
+# This file configures pre-commit hooks to automatically run code quality
+# checks before each commit. This ensures consistent code quality and prevents
+# common issues from being committed.
+#
+# Installation:
+#   pip install pre-commit
+#   pre-commit install
+#
+# Usage:
+#   pre-commit run --all-files          # Run on all files
+#   pre-commit run                       # Run on staged files
+#   pre-commit autoupdate                # Update hooks to latest versions
+#
+# Documentation: https://pre-commit.com/
+# ============================================================================
+
+# Minimum pre-commit version
+minimum_pre_commit_version: "3.0.0"
+
+# Default configuration for all hooks
+default_language_version:
+  python: python3.11
+
+# Default stages (when hooks run)
+default_stages: [commit]
+
+# Exclude patterns (files/directories to skip)
+exclude: |
+  (?x)^(
+      \.git
+      | \.venv
+      | venv
+      | env
+      | ENV
+      | __pycache__
+      | \.mypy_cache
+      | \.pytest_cache
+      | migrations
+      | staticfiles
+      | media
+      | htmlcov
+      | logs
+      | \.coverage
+      | coverage\.xml
+      | build
+      | dist
+      | \.DS_Store
+      | \.idea
+      | \.vscode
+  )/
+
+# Repository hooks (from remote repositories)
+repos:
+  # ========================================================================
+  # General File Checks
+  # ========================================================================
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      # Check for merge conflict markers
+      - id: check-merge-conflict
+        description: "Check for merge conflict markers"
+        args: ["--assume-in-merge"]
+
+      # Check for large files
+      - id: check-added-large-files
+        description: "Prevent committing large files"
+        args: ["--maxkb=1024"]  # 1MB limit
+
+      # Check YAML syntax
+      - id: check-yaml
+        description: "Validate YAML syntax"
+        args: ["--unsafe"]  # Allow custom tags
+
+      # Check JSON syntax
+      - id: check-json
+        description: "Validate JSON syntax"
+
+      # Check TOML syntax
+      - id: check-toml
+        description: "Validate TOML syntax"
+
+      # Check XML syntax
+      - id: check-xml
+        description: "Validate XML syntax"
+
+      # Remove trailing whitespace
+      - id: trailing-whitespace
+        description: "Remove trailing whitespace"
+        args: ["--markdown-linebreak-ext=md"]
+
+      # Ensure files end with newline
+      - id: end-of-file-fixer
+        description: "Ensure files end with newline"
+        exclude: ^(.*\.(png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|pdf|zip|tar|gz))$
+
+      # Fix line endings (use LF)
+      - id: mixed-line-ending
+        description: "Fix line endings (use LF)"
+        args: ["--fix=lf"]
+
+      # Check for debugger statements
+      - id: debug-statements
+        description: "Check for debugger statements (pdb, ipdb, etc.)"
+
+      # Check executables have shebangs
+      - id: check-executables-have-shebangs
+        description: "Check executables have shebangs"
+
+      # Check for byte order marker
+      - id: check-byte-order-marker
+        description: "Check for BOM"
+
+      # Check for case conflicts
+      - id: check-case-conflict
+        description: "Check for case conflicts"
+
+      # Check for files that would conflict in case-insensitive filesystems
+      - id: check-case-conflict
+        description: "Check for case conflicts"
+
+  # ========================================================================
+  # Python Code Formatting
+  # ========================================================================
+  - repo: https://github.com/psf/black
+    rev: 24.10.0
+    hooks:
+      - id: black
+        description: "Format Python code with Black"
+        language_version: python3.11
+        args: ["--line-length=100"]
+
+  # ========================================================================
+  # Python Import Sorting
+  # ========================================================================
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        description: "Sort Python imports with isort"
+        args: [
+          "--profile=black",
+          "--line-length=100",
+        ]
+
+  # ========================================================================
+  # Python Linting
+  # ========================================================================
+  - repo: https://github.com/pycqa/flake8
+    rev: 7.1.1
+    hooks:
+      - id: flake8
+        description: "Lint Python code with flake8"
+        args: [
+          "--max-line-length=100",
+          "--max-complexity=10",
+          "--extend-ignore=W503,E203,E501",
+        ]
+        additional_dependencies: [
+          flake8-docstrings==1.7.0,
+          flake8-bugbear>=24.1.17,
+          flake8-comprehensions>=3.14.0,
+        ]
+
+  # ========================================================================
+  # Python Type Checking (Non-blocking)
+  # ========================================================================
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.11.2
+    hooks:
+      - id: mypy
+        description: "Type check Python code with mypy (non-blocking)"
+        additional_dependencies: [
+          django-stubs==5.0.2,
+          djangorestframework-stubs==3.15.1,
+        ]
+        args: [
+          "--ignore-missing-imports",
+          "--show-error-codes",
+          "--show-column-numbers",
+        ]
+        # Non-blocking: warnings only
+        pass_filenames: true
+        always_run: false
+        # Only run on Python files
+        types: [python]
+        # Exclude migrations and test files
+        exclude: ^(migrations/|test_|.*_test\.py|conftest\.py|factories\.py)
+
+  # ========================================================================
+  # Security Scanning (Non-blocking)
+  # ========================================================================
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.9
+    hooks:
+      - id: bandit
+        description: "Security linting with bandit (non-blocking)"
+        args: [
+          "-r",
+          ".",
+          "-x",
+          "migrations,venv,env,.venv,__pycache__,tests,test_*.py,conftest.py,factories.py",
+          "-ll",  # Low confidence level (warnings only)
+        ]
+        # Non-blocking: warnings only
+        pass_filenames: false
+        always_run: true
+
+  # ========================================================================
+  # Dockerfile Linting (Optional)
+  # ========================================================================
+  - repo: https://github.com/hadolint/hadolint
+    rev: v2.12.0
+    hooks:
+      - id: hadolint-docker
+        description: "Lint Dockerfile with hadolint"
+        args: ["--ignore", "DL3008", "--ignore", "DL3009"]  # Ignore specific rules
+        # Only run on Dockerfile
+        files: ^Dockerfile$
+
+  # ========================================================================
+  # YAML Linting (Enhanced)
+  # ========================================================================
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.35.1
+    hooks:
+      - id: yamllint
+        description: "Lint YAML files with yamllint"
+        args: [
+          "-d",
+          "{extends: default, rules: {line-length: {max: 120}, comments: {min-spaces-from-content: 1}}}",
+        ]
+
+# ============================================================================
+# Local Hooks (Custom hooks defined in this repository)
+# ============================================================================
+# Uncomment and add custom local hooks if needed
+# - repo: local
+#   hooks:
+#     - id: custom-hook
+#       name: Custom Hook
+#       entry: ./scripts/custom-hook.sh
+#       language: system
+#       types: [python]
+
+# ============================================================================
+# Notes
+# ============================================================================
+# - Black and isort are configured to work together (Black-compatible profile)
+# - flake8 ignores rules that conflict with Black (W503, E203, E501)
+# - mypy and bandit are non-blocking (warnings only, won't fail commits)
+# - All hooks exclude migrations, virtual environments, and build artifacts
+# - Hooks run automatically on git commit
+# - Use --no-verify to skip hooks (not recommended)
+# ============================================================================
+
