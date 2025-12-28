@@ -239,22 +239,75 @@ CORS_ALLOW_HEADERS = [
     'x-requested-with',
 ]
 
+# ============================================================================
 # Celery Configuration
+# ============================================================================
+# Production-ready Celery configuration for distributed task queue.
+# Celery uses Redis as both message broker and result backend.
+
+# Broker and Result Backend URLs
+# Redis is used for both message queuing and storing task results
 CELERY_BROKER_URL = env('CELERY_BROKER_URL', default='redis://redis:6379/0')
 CELERY_RESULT_BACKEND = env('CELERY_RESULT_BACKEND', default='redis://redis:6379/0')
-CELERY_ACCEPT_CONTENT = ['json']
-CELERY_TASK_SERIALIZER = 'json'
-CELERY_RESULT_SERIALIZER = 'json'
-CELERY_TIMEZONE = 'UTC'
-CELERY_ENABLE_UTC = True
-CELERY_TASK_TRACK_STARTED = True
-CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutes
-CELERY_TASK_SOFT_TIME_LIMIT = 60 * 60  # 1 hour
-CELERY_WORKER_SEND_TASK_EVENTS = True
-CELERY_TASK_SEND_SENT_EVENT = True
 
-# Celery Beat Configuration
+# Serialization Configuration
+# JSON is the recommended format for security and compatibility
+CELERY_ACCEPT_CONTENT = ['json']  # Only accept JSON serialized tasks
+CELERY_TASK_SERIALIZER = 'json'  # Serialize task data as JSON
+CELERY_RESULT_SERIALIZER = 'json'  # Serialize result data as JSON
+
+# Timezone Configuration
+CELERY_TIMEZONE = 'UTC'  # Use UTC for consistent scheduling across timezones
+CELERY_ENABLE_UTC = True  # Enable UTC timezone support
+
+# Task Execution Configuration
+CELERY_TASK_TRACK_STARTED = True  # Track when tasks are started (not just received)
+CELERY_TASK_TIME_LIMIT = 30 * 60  # Hard time limit: 30 minutes (task is killed after this)
+CELERY_TASK_SOFT_TIME_LIMIT = 25 * 60  # Soft time limit: 25 minutes (raises exception, allows cleanup)
+CELERY_TASK_ACKS_LATE = True  # Acknowledge tasks only after completion (prevents task loss on worker crash)
+CELERY_TASK_REJECT_ON_WORKER_LOST = True  # Reject tasks if worker connection is lost
+
+# Task Result Configuration
+CELERY_RESULT_EXPIRES = 3600  # Result expiration time: 1 hour (prevents Redis memory buildup)
+CELERY_RESULT_EXTENDED = True  # Store more result metadata (useful for monitoring)
+
+# Worker Configuration
+CELERY_WORKER_PREFETCH_MULTIPLIER = 4  # Prefetch 4 tasks per worker process (balance between throughput and fairness)
+CELERY_WORKER_MAX_TASKS_PER_CHILD = 1000  # Restart worker child process after 1000 tasks (prevents memory leaks)
+CELERY_WORKER_SEND_TASK_EVENTS = True  # Send task events for monitoring (required for Flower)
+CELERY_WORKER_DISABLE_RATE_LIMITS = False  # Enable rate limiting for tasks
+
+# Task Event Configuration
+CELERY_TASK_SEND_SENT_EVENT = True  # Send 'task-sent' event (required for Flower monitoring)
+CELERY_TASK_IGNORE_RESULT = False  # Store task results (can be set per-task for better performance)
+
+# Task Routing (Optional - for future use with multiple queues)
+# CELERY_TASK_ROUTES = {
+#     'notifications.tasks.*': {'queue': 'notifications'},
+#     'projects.tasks.*': {'queue': 'projects'},
+# }
+
+# Task Retry Configuration
+# Note: Retry logic should be configured per-task using @task decorator parameters
+# Example: @app.task(autoretry_for=(Exception,), retry_backoff=True, retry_kwargs={'max_retries': 3})
+CELERY_TASK_DEFAULT_RETRY_DELAY = 60  # Default retry delay: 60 seconds (used if retry_backoff is False)
+
+# ============================================================================
+# Celery Beat Configuration (Periodic Task Scheduler)
+# ============================================================================
+# Uses django-celery-beat for database-backed periodic task scheduling.
+# This allows dynamic scheduling without code changes.
 CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
+
+# Celery Beat Schedule (Optional - can also be managed via Django admin)
+# For static schedules, use CELERY_BEAT_SCHEDULE dictionary here.
+# For dynamic schedules, use django-celery-beat PeriodicTask model.
+# CELERY_BEAT_SCHEDULE = {
+#     'send-daily-reminders': {
+#         'task': 'notifications.tasks.send_daily_reminders',
+#         'schedule': crontab(hour=9, minute=0),  # Daily at 9 AM
+#     },
+# }
 
 # Email Configuration
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
@@ -266,12 +319,181 @@ EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD', default='')
 DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='noreply@taskmanager.com')
 
 # API Documentation (drf-spectacular)
+# Comprehensive OpenAPI 3.0 schema configuration for Swagger/ReDoc documentation
 SPECTACULAR_SETTINGS = {
+    # Basic Information
     'TITLE': 'Task Management System API',
-    'DESCRIPTION': 'A comprehensive REST API for managing tasks, projects, teams, and notifications.',
+    'DESCRIPTION': """
+    # Task Management System API Documentation
+    
+    A comprehensive REST API for managing tasks, projects, teams, and notifications.
+    
+    ## Features
+    
+    - **User Management**: Registration, authentication, and profile management with JWT
+    - **Team Management**: Create teams, manage members, role-based access control
+    - **Project Management**: Create projects, assign teams, track progress, analytics
+    - **Task Management**: Create tasks, assignees, priorities, dependencies, comments, attachments
+    - **Notifications**: Real-time in-app notifications with filtering and search
+    
+    ## Authentication
+    
+    This API uses JWT (JSON Web Tokens) for authentication. To authenticate:
+    
+    1. Register a new user at `/api/auth/register/` or login at `/api/auth/login/`
+    2. Use the returned `access` token in the Authorization header: `Bearer <access_token>`
+    3. Refresh tokens using `/api/token/refresh/` when access token expires
+    
+    ## Rate Limiting
+    
+    API requests are rate-limited to ensure fair usage. Contact support if you need higher limits.
+    
+    ## Pagination
+    
+    List endpoints support pagination with default page size of 20 items. Use `page` and `page_size` query parameters.
+    
+    ## Filtering & Search
+    
+    Most list endpoints support filtering and search. See individual endpoint documentation for available filters.
+    
+    ## Error Responses
+    
+    The API uses standard HTTP status codes:
+    - `200 OK`: Successful request
+    - `201 Created`: Resource created successfully
+    - `400 Bad Request`: Invalid request data
+    - `401 Unauthorized`: Authentication required
+    - `403 Forbidden`: Insufficient permissions
+    - `404 Not Found`: Resource not found
+    - `500 Internal Server Error`: Server error
+    
+    ## Support
+    
+    For issues or questions, please contact the development team.
+    """,
     'VERSION': '1.0.0',
-    'SERVE_INCLUDE_SCHEMA': False,
-    'COMPONENT_SPLIT_REQUEST': True,
+    'CONTACT': {
+        'name': 'API Support',
+        'email': 'support@taskmanager.com',
+    },
+    'LICENSE': {
+        'name': 'MIT License',
+    },
+    
+    # Schema Generation
+    'SERVE_INCLUDE_SCHEMA': False,  # Don't include schema in response
+    'COMPONENT_SPLIT_REQUEST': True,  # Split request/response schemas
+    'COMPONENT_NO_READ_ONLY_REQUIRED': True,  # Don't require read-only fields
+    'SCHEMA_PATH_PREFIX': '/api',  # API path prefix
+    
+    # UI Configuration
+    'SWAGGER_UI_SETTINGS': {
+        'deepLinking': True,  # Enable deep linking
+        'displayOperationId': True,  # Show operation IDs
+        'defaultModelsExpandDepth': 2,  # Expand models by default
+        'defaultModelExpandDepth': 2,  # Expand model properties
+        'displayRequestDuration': True,  # Show request duration
+        'docExpansion': 'list',  # Expand tags by default
+        'filter': True,  # Enable filter box
+        'showExtensions': True,  # Show extensions
+        'showCommonExtensions': True,  # Show common extensions
+        'tryItOutEnabled': True,  # Enable "Try it out" by default
+    },
+    'REDOC_UI_SETTINGS': {
+        'hideDownloadButton': False,  # Show download button
+        'hideHostname': False,  # Show hostname
+        'hideSingleRequestSampleTab': False,  # Show single request sample
+        'expandResponses': '200,201',  # Expand successful responses
+        'pathInMiddlePanel': True,  # Show path in middle panel
+        'requiredPropsFirst': True,  # Show required props first
+        'sortOperationsAlphabetically': False,  # Keep original order
+        'sortTagsAlphabetically': False,  # Keep original order
+    },
+    
+    # Security
+    'APPEND_COMPONENTS': {
+        'securitySchemes': {
+            'BearerAuth': {
+                'type': 'http',
+                'scheme': 'bearer',
+                'bearerFormat': 'JWT',
+                'description': 'JWT authentication using Bearer token. Format: "Bearer {token}"',
+            }
+        }
+    },
+    'SECURITY': [{'BearerAuth': []}],  # Apply Bearer auth to all endpoints
+    
+    # Tags for organizing endpoints
+    'TAGS': [
+        {
+            'name': 'Authentication',
+            'description': 'User registration, login, and token management endpoints',
+        },
+        {
+            'name': 'Users',
+            'description': 'User profile management endpoints',
+        },
+        {
+            'name': 'Teams',
+            'description': 'Team management and team member operations',
+        },
+        {
+            'name': 'Projects',
+            'description': 'Project management, analytics, and project member operations',
+        },
+        {
+            'name': 'Tasks',
+            'description': 'Task management, assignment, comments, and attachments',
+        },
+        {
+            'name': 'Notifications',
+            'description': 'Notification listing, marking as read, and counts',
+        },
+        {
+            'name': 'Health',
+            'description': 'System health check endpoints',
+        },
+    ],
+    
+    # Response Examples
+    'SERVE_PERMISSIONS': ['rest_framework.permissions.AllowAny'],  # Allow access to docs
+    'SERVE_AUTHENTICATION': None,  # No auth required for docs
+    
+    # Schema Customization
+    'TAGS_META': [
+        {
+            'name': 'Authentication',
+            'externalDocs': {
+                'description': 'JWT Authentication Guide',
+                'url': 'https://django-rest-framework-simplejwt.readthedocs.io/',
+            },
+        },
+    ],
+    
+    # Extensions
+    'EXTENSIONS_INFO': {
+        'x-logo': {
+            'url': 'https://via.placeholder.com/200x50?text=Task+Manager',
+            'altText': 'Task Management System',
+        },
+    },
+    
+    # Customization
+    'SORT_OPERATIONS': False,  # Keep original operation order
+    'SORT_TAGS': False,  # Keep original tag order
+    'ENUM_NAME_OVERRIDES': {
+        'TaskStatusEnum': 'tasks.models.Task.STATUS_CHOICES',
+        'TaskPriorityEnum': 'tasks.models.Task.PRIORITY_CHOICES',
+        'ProjectStatusEnum': 'projects.models.Project.STATUS_CHOICES',
+        'ProjectPriorityEnum': 'projects.models.Project.PRIORITY_CHOICES',
+        'NotificationTypeEnum': 'notifications.models.Notification.NOTIFICATION_TYPES',
+    },
+    
+    # Advanced Settings
+    'PREPROCESSING_HOOKS': [],  # Custom preprocessing hooks
+    'POSTPROCESSING_HOOKS': [],  # Custom postprocessing hooks
+    'SERVE_URLCONF': None,  # Use default URL conf
+    'DEFAULT_GENERATOR_CLASS': 'drf_spectacular.generators.SchemaGenerator',
 }
 
 # Security Settings

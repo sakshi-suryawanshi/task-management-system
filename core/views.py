@@ -6,8 +6,41 @@ from django.http import JsonResponse
 from django.db import connection
 from django.conf import settings
 import redis
+from drf_spectacular.utils import extend_schema
+from drf_spectacular.types import OpenApiTypes
 
 
+@extend_schema(
+    tags=['Health'],
+    summary='Health check',
+    description='Check the health status of the application and its dependencies (database, Redis).',
+    responses={
+        200: {
+            'description': 'All services are healthy',
+            'examples': [
+                {
+                    'status': 'healthy',
+                    'services': {
+                        'database': 'healthy',
+                        'redis': 'healthy',
+                    },
+                },
+            ],
+        },
+        503: {
+            'description': 'One or more services are unhealthy',
+            'examples': [
+                {
+                    'status': 'unhealthy',
+                    'services': {
+                        'database': 'healthy',
+                        'redis': 'unhealthy: Connection refused',
+                    },
+                },
+            ],
+        },
+    },
+)
 def health_check(request):
     """
     Health check endpoint for Docker health checks.
